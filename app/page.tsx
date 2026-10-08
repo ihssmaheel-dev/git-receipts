@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { ArrowIcon, GithubIcon, PrinterIcon } from "@/components/Icons";
 import { Printer } from "@/components/Printer/Printer";
-import { getReceiptData, normalizeYear, parseGitHubUsername } from "@/lib/github";
+import { getReceiptData, normalizeYear, parseGitHubUsername, slowDownReceiptData } from "@/lib/github";
+import { getPrintCount } from "@/lib/prints";
+import { checkLimit, hashIp, limitFromEnv } from "@/lib/rateLimit";
 import { siteConfig } from "@/lib/config";
 import { createQrPath, receiptPermalink, receiptQrTarget } from "@/lib/qr";
 import { ProfileForm } from "@/components/ProfileForm/ProfileForm";
@@ -33,7 +36,21 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const rawUser = first(params.user)?.trim() || "";
   const user = parseGitHubUsername(rawUser);
   const year = normalizeYear(Number(first(params.year)) || undefined);
-  const data = await getReceiptData(year, rawUser || undefined);
+  // Abuse gate runs before any GitHub fetch; trips render a slow-down notice,
+  // never a fabricated receipt. Memory-only here keeps page latency flat; the
+  // shared fetch cache absorbs cross-instance floods and the outbound guard
+  // protects the token quota behind it.
+  const pageGate = await checkLimit(`page:${hashIp((await headers()).get("x-forwarded-for"))}`, {
+    limit: limitFromEnv("RATE_LIMIT_PAGE", 60),
+    windowMs: 60_000,
+    store: "memory",
+  });
+  const [data, printCount] = await Promise.all([
+    pageGate.allowed
+      ? getReceiptData(year, rawUser || undefined)
+      : Promise.resolve(slowDownReceiptData(year, rawUser || undefined, pageGate.retryAfterMs)),
+    getPrintCount(),
+  ]);
   const initialShowStamp = stampEnabled(params.stamp);
   const demo = data.snapshot.source === "demo";
   const selectedUser = user ? data.snapshot.username : "";
@@ -78,7 +95,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
             </div>
           </aside>
           <div className="printer-column">
-            <Printer key={`${data.snapshot.username}-${data.snapshot.year}`} data={data} qrPath={qr.path} qrSize={qr.size} qrLabel={qrTarget.label} qrUrl={qrTarget.url} />
+            <Printer key={`${data.snapshot.username}-${data.snapshot.year}`} data={data} qrPath={qr.path} qrSize={qr.size} qrLabel={qrTarget.label} qrUrl={qrTarget.url} printCount={printCount} />
           </div>
         </section>
         <section className="activity-section" aria-labelledby="activity-title">

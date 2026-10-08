@@ -6,7 +6,7 @@ import type { ContributionSnapshot, ContributionStats } from "../lib/types";
 
 const snapshot: ContributionSnapshot = {
   username: "octocat", displayName: "Octocat", avatarUrl: null, year: 2025,
-  source: "public", sourceMessage: "Exact public calendar", available: true,
+  source: "public", sourceMessage: "Exact public calendar", available: true, rateLimited: false,
   fetchedAt: "2025-12-31T12:00:00Z", periodStart: "2025-01-01", periodEnd: "2025-12-31",
   days: [], repositories: [], totalContributions: 0, totalCommits: null,
   pullRequests: null, reviews: null, issues: null, restrictedContributions: null,

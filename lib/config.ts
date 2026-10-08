@@ -2,6 +2,20 @@ function cleanOptional(value: string | undefined): string | null {
   return value?.trim() || null;
 }
 
+/**
+ * Tokens must never use the NEXT_PUBLIC_ prefix: anything so prefixed ships
+ * to browsers. Returns the offending variable names for boot warnings.
+ */
+export function findLeakedSecrets(env: Record<string, string | undefined>): string[] {
+  return Object.keys(env).filter((name) =>
+    name.startsWith("NEXT_PUBLIC_") && /(GH_PAT|AUTH_TOKEN|SECRET|PRIVATE_KEY)/.test(name));
+}
+
+const leaked = findLeakedSecrets(process.env);
+if (leaked.length > 0) {
+  console.warn(`[security] These secrets use the NEXT_PUBLIC_ prefix and ship to browsers: ${leaked.join(", ")}. Rename them without the prefix.`);
+}
+
 function safeSiteUrl(value: string | undefined): string {
   try {
     const url = new URL(value || "http://localhost:3000");

@@ -30,6 +30,8 @@ export interface ContributionSnapshot {
   source: SnapshotSource;
   sourceMessage: string;
   available: boolean;
+  /** GitHub's request quota (or our shared outbound guard) is empty: show OUT OF PAPER. */
+  rateLimited: boolean;
   fetchedAt: string;
   periodStart: string;
   periodEnd: string;

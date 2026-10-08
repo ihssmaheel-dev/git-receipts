@@ -23,9 +23,9 @@ const MACHINE_WIDTH = 440;
 const MACHINE_HEIGHT = 310;
 const BELOW_SLOT = 214.4;
 
-type PrinterProps = { data: ReceiptData; qrPath: string; qrSize: number; qrLabel: string; qrUrl: string };
+type PrinterProps = { data: ReceiptData; qrPath: string; qrSize: number; qrLabel: string; qrUrl: string; printCount: number | null };
 
-export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) {
+export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: PrinterProps) {
   const { showStamp, setShowStamp } = useReceiptPreferences();
   const engine = usePrinter(data.lines);
   const uid = useId().replaceAll(":", "");
@@ -42,7 +42,10 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
   const [copied, setCopied] = useState<"link" | "text" | null>(null);
   const [egg, setEgg] = useState(false);
   const serialClicks = useRef(0);
+  const runKeyRef = useRef<string | null>(null);
+  const postedPrints = useRef<Set<number>>(new Set());
   const available = data.snapshot.available;
+  const outOfPaper = !available && data.snapshot.rateLimited;
   const exportDisabled = engine.isBusy || !!exporting || !available;
   const sample = data.snapshot.source === "demo";
   const earnedSeal = createReceiptSeal(data.lines);
@@ -63,6 +66,30 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
     const settleTimer = window.setTimeout(openFinishedReceipt, 240);
     return () => window.clearTimeout(settleTimer);
   }, [engine.state, engine.runId, engine.reducedMotion]);
+
+  // Count one completed FEED run toward the public total. Guarded per run so
+  // StrictMode remounts and dialog-driven re-renders never double-count.
+  // Interrupted prints (engine.error) are excluded; reduced-motion instant
+  // completions count because the full receipt is delivered.
+  useEffect(() => {
+    if (engine.state !== "done" || engine.error) return;
+    if (!available || postedPrints.current.has(engine.runId)) return;
+    postedPrints.current.add(engine.runId);
+    const runKey = runKeyRef.current;
+    if (!runKey) return;
+    const body = JSON.stringify({
+      ...(sample ? {} : { user: data.snapshot.username }),
+      year: data.snapshot.year,
+      runKey,
+    });
+    fetch("/api/prints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    }).catch(() => {
+      // Telemetry must never interrupt the receipt experience.
+    });
+  }, [engine.state, engine.runId, available, sample, data.snapshot.username, data.snapshot.year]);
 
   useEffect(() => {
     let active = true;
@@ -115,12 +142,15 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
     "--below-slot": BELOW_SLOT * geometry.machineScale + "px",
     height: Math.min(physicalHeight + BELOW_SLOT * geometry.machineScale, 420 * geometry.machineScale),
   } as CSSProperties;
-  const currentStatus = !available ? "Profile unavailable" : statusText[engine.state];
+  const currentStatus = !available
+    ? (outOfPaper ? "Out of paper" : "Profile unavailable")
+    : statusText[engine.state];
 
   function printReceipt(event: MouseEvent<HTMLButtonElement>) {
     if (!available || engine.isBusy || exporting) return;
     receiptReturnFocus.current = event.currentTarget;
     showFinishedReceipt.current = true;
+    runKeyRef.current = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : null;
     setMessage("");
     setCopied(null);
     engine.startPrint();
@@ -201,15 +231,15 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
       </div>
     </div>
     <div className={styles.bench} data-state={engine.state}>
-      <div className={styles.benchHeading}><span>PRINT STATION / 01</span><span>{!available ? "NO DATA" : sample ? "SAMPLE" : "@" + data.snapshot.username} · {data.snapshot.year}</span></div>
+      <div className={styles.benchHeading}><span>PRINT STATION / 01</span>{printCount !== null && <span className={styles.printCount}>Totally {printCount.toLocaleString("en-US")} {printCount === 1 ? "receipt" : "receipts"} printed</span>}<span>{!available ? "NO DATA" : sample ? "SAMPLE" : "@" + data.snapshot.username} · {data.snapshot.year}</span></div>
       <div className={styles.assembly} ref={assemblyRef} style={stageStyle} data-state={engine.state} data-reduced={engine.reducedMotion}>
-        <div className={styles.benchMeasure} aria-hidden="true"><span>80 MM</span><i /><span>PAPER FEED</span></div>
         <PrinterHousingBack idPrefix={uid} />
         <div ref={windowRef} className={styles.paperWindow} aria-label="Paper exiting the top slot">
             <div className={styles.paperWeb} style={{ "--paper-feed-y": Math.round(paperY) + "px" } as CSSProperties}>
             <div ref={paperRef} className={styles.paperSurface} style={{ width: PAPER_WIDTH, zoom: geometry.scale }}>{printedReceipt}</div>
           </div>
           <div className={styles.printHeadShadow} aria-hidden="true" />
+          <Dialog.Trigger asChild><button className={styles.paperViewerTrigger} disabled={engine.isBusy} aria-label="View full receipt" onClick={(event) => { receiptReturnFocus.current = event.currentTarget; }} /></Dialog.Trigger>
         </div>
         <PrinterHousingFront idPrefix={uid} stage={engine.state} egg={egg} available={available} />
         <button className={styles.physicalPrint} onClick={printReceipt} disabled={engine.isBusy || !available || !!exporting} aria-label={engine.state === "done" ? "Print receipt again on the thermal printer" : "Print receipt on the thermal printer"}><svg className={styles.feedMark} viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 8V3q0-1.5 1.5-1.5h11Q21 1.5 21 3v5M6 8h16q5 0 5 5v7q0 2-2 2h-4M7 22H3q-2 0-2-2v-7q0-5 5-5" /><rect x="7" y="16" width="14" height="10" rx="1.5" /></svg><span className={styles.feedButtonLabel}>FEED</span></button>
@@ -223,7 +253,7 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
     </div>
     <div className={styles.stampSetting}>{stampToggle}{!earnedSeal && <span>{stampNote}</span>}</div>
     <div className={styles.shareBar}><button onClick={() => copyReceipt("link")} disabled={!available}>{copied === "link" ? <CheckIcon /> : <Link2Icon />}{copied === "link" ? "Link copied" : "Copy receipt link"}</button><button onClick={() => copyReceipt("text")} disabled={!available}>{copied === "text" ? <CheckIcon /> : <FileTextIcon />}{copied === "text" ? "Text copied" : "Copy text receipt"}</button><button onClick={() => window.print()} disabled={!available || engine.isBusy}><ReaderIcon />Print on paper</button></div>
-    <p className={styles.message} role="status" aria-live="polite">{engine.isBusy ? currentStatus + "…" : message || engine.error || (!available ? "Load another profile to print a receipt." : engine.state === "done" ? "The receipt is cut and ready to save." : "Press Print receipt to run the printer.")}</p>
+    <p className={styles.message} role="status" aria-live="polite">{engine.isBusy ? currentStatus + "…" : message || engine.error || (outOfPaper ? "Out of paper — quota is empty. Try the sample receipt or come back soon." : !available ? "Load another profile to print a receipt." : engine.state === "done" ? "The receipt is cut and ready to save." : "Press Print receipt to run the printer.")}</p>
     <noscript><p className={styles.message}>Download your full receipt as <a href={"/api/receipt.svg?" + query}>SVG</a> or <a href={"/api/receipt.pdf?" + query}>PDF</a> without JavaScript.</p></noscript>
     <Dialog.Portal><Dialog.Overlay className={styles.dialogOverlay} /><Dialog.Content className={styles.receiptDialog} data-theme={theme} onCloseAutoFocus={(event) => { event.preventDefault(); receiptReturnFocus.current?.focus({ preventScroll: true }); }}>
       <div className={styles.dialogHeading}><div><span>{engine.state === "done" ? "PRINTED RECEIPT" : "RECEIPT"} / {data.snapshot.year}</span><Dialog.Title asChild><strong>{!available ? "Receipt unavailable" : sample ? "Sample receipt" : "@" + data.snapshot.username + " receipt"}</strong></Dialog.Title></div><Dialog.Close asChild><button aria-label="Close receipt"><Cross2Icon /></button></Dialog.Close></div>

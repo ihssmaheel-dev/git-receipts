@@ -10,4 +10,4 @@ artifacts/
 *.db-journal
 *.db-wal
 *.db-shm
-data/cache.db*
+data/app.db*

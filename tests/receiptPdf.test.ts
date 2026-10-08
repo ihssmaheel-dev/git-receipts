@@ -7,7 +7,7 @@ import { receiptPdfWidth, renderReceiptPdf } from "../lib/receiptPdf";
 import type { ReceiptData } from "../lib/types";
 
 const data: ReceiptData = {
-  snapshot: { username: "octocat", displayName: "The Octocat", avatarUrl: null, year: 2025, source: "live", sourceMessage: "GitHub", available: true, fetchedAt: "2025-12-31T00:00:00Z", periodStart: "2025-01-01", periodEnd: "2025-12-31", days: [], repositories: [], totalContributions: 1234, totalCommits: 1234, pullRequests: 0, reviews: 0, issues: 0, restrictedContributions: 0 },
+  snapshot: { username: "octocat", displayName: "The Octocat", avatarUrl: null, year: 2025, source: "live", sourceMessage: "GitHub", available: true, rateLimited: false, fetchedAt: "2025-12-31T00:00:00Z", periodStart: "2025-01-01", periodEnd: "2025-12-31", days: [], repositories: [], totalContributions: 1234, totalCommits: 1234, pullRequests: 0, reviews: 0, issues: 0, restrictedContributions: 0 },
   stats: { totalContributions: 1234, totalCommits: 1234, pullRequests: 0, reviews: 0, issues: 0, otherContributions: 0, activeDays: 200, currentStreak: 0, longestStreak: 24, busiestDay: null, calendarComplete: true, bestMonth: null, longestBreak: null, topRepos: [] },
   lines: [
     { type: "heading", text: "COMMIT PRINTER", detail: "A YEAR OF SHOWING UP" },

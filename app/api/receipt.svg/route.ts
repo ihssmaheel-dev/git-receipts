@@ -1,12 +1,19 @@
 import { siteConfig } from "@/lib/config";
 import { getReceiptData } from "@/lib/github";
 import { createQrPath, receiptQrTarget } from "@/lib/qr";
+import { checkLimit, clientIpHash, limitFromEnv, rateLimitResponse } from "@/lib/rateLimit";
 import { parseReceiptRequest } from "@/lib/receiptRequest";
 import { renderReceiptSvg } from "@/lib/receiptSvg";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const gate = await checkLimit(`svg:${clientIpHash(request)}`, {
+    limit: limitFromEnv("RATE_LIMIT_SVG", 30),
+    windowMs: 60_000,
+    store: "turso",
+  });
+  if (!gate.allowed) return rateLimitResponse(gate.retryAfterMs);
   const options = parseReceiptRequest(new URL(request.url));
   if ("error" in options) return new Response(options.error, { status: 400 });
 

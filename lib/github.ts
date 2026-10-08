@@ -1,14 +1,14 @@
 import "server-only";
 
-import fallback from "../data/fallback.json";
 import { createSnapshotCache } from "./githubCache";
-import { durableSnapshotKey, getStoredSnapshot, putStoredSnapshot } from "./db/snapshots";
-import { contributionPeriod, normalizeYear, parseContributionCalendar, parseGitHubUsername } from "./githubInput";
-import { buildReceiptLines } from "./receiptLines";
-import { calculateStats, normalizeDays } from "./stats";
+import { checkOutboundQuota } from "./rateLimit";
+import { isQuotaStatus, hasQuotaErrorBody, RateLimitedError, contributionPeriod, normalizeYear, parseContributionCalendar, parseGitHubUsername } from "./githubInput";
+import { demoSnapshot, outOfPaperSnapshot, receiptFromSnapshot, unavailableSnapshot } from "./receiptData";
+import { normalizeDays } from "./stats";
 import type { ContributionSnapshot, ReceiptData, RepositorySummary } from "./types";
 
-export { normalizeYear, parseContributionCalendar, parseGitHubUsername } from "./githubInput";
+export { normalizeYear, parseContributionCalendar, parseGitHubUsername, RateLimitedError, isQuotaStatus, hasQuotaErrorBody } from "./githubInput";
+export { slowDownReceiptData } from "./receiptData";
 
 const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
 const CACHE_SECONDS = 3600;
@@ -72,43 +72,9 @@ function rememberSnapshot(snapshot: ContributionSnapshot): ContributionSnapshot 
   return snapshot;
 }
 
-function receiptFromSnapshot(snapshot: ContributionSnapshot): ReceiptData {
-  const stats = calculateStats(snapshot);
-  return { snapshot, stats, lines: buildReceiptLines(snapshot, stats) };
-}
-
 function fetchedAt(response: Response): string {
   const timestamp = Date.parse(response.headers.get("date") || "");
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString();
-}
-
-function unavailableSnapshot(username: string, year: number, demo = false): ContributionSnapshot {
-  return {
-    username,
-    displayName: demo ? "Demo receipt" : username,
-    avatarUrl: null,
-    year,
-    source: demo ? "demo" : "fallback",
-    sourceMessage: demo
-      ? `The sample receipt is available for ${fallback.year}. Pick that year to try the demo.`
-      : "GitHub is unavailable or this profile does not exist. Please try again.",
-    available: false,
-    fetchedAt: new Date().toISOString(),
-    ...contributionPeriod(year),
-    days: [],
-    repositories: [],
-    totalContributions: 0,
-    totalCommits: null,
-    pullRequests: null,
-    reviews: null,
-    issues: null,
-    restrictedContributions: null,
-  };
-}
-
-function demoSnapshot(year: number): ContributionSnapshot {
-  if (year !== fallback.year) return unavailableSnapshot("demo", year, true);
-  return { ...fallback, source: "demo", available: true } as ContributionSnapshot;
 }
 
 async function fetchGraphQLSnapshot(username: string, year: number, token: string): Promise<ContributionSnapshot> {
@@ -124,8 +90,12 @@ async function fetchGraphQLSnapshot(username: string, year: number, token: strin
     cache: "force-cache",
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) throw new Error("GitHub GraphQL request failed");
+  if (!response.ok) {
+    if (isQuotaStatus(response.status, response.headers)) throw new RateLimitedError();
+    throw new Error("GitHub GraphQL request failed");
+  }
   const result = await response.json() as { data?: { user?: GraphQLUser | null }; errors?: unknown[] };
+  if (hasQuotaErrorBody(result)) throw new RateLimitedError();
   if (result.errors?.length || !result.data?.user) throw new Error("GitHub profile data unavailable");
   const user = result.data.user;
   const collection = user.contributionsCollection;
@@ -150,6 +120,7 @@ async function fetchGraphQLSnapshot(username: string, year: number, token: strin
     source: "live",
     sourceMessage: "GitHub contribution data. Refreshed hourly.",
     available: true,
+    rateLimited: false,
     fetchedAt: fetchedAt(response),
     ...period,
     days,
@@ -178,7 +149,15 @@ async function fetchPublicSnapshot(username: string, year: number): Promise<Cont
       headers: { ...publicOptions.headers, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
     }),
   ]);
-  if (calendarResult.status !== "fulfilled" || !calendarResult.value.ok) throw new Error("Public GitHub calendar unavailable");
+  if (calendarResult.status !== "fulfilled" || !calendarResult.value.ok) {
+    // A 429 from the calendar host means the shared quota is empty, not that the profile is missing.
+    // (Profile-detail failures stay non-fatal: calendar data remains useful without them.)
+    const calendarResponse = calendarResult.status === "fulfilled" ? calendarResult.value : null;
+    if (calendarResponse && isQuotaStatus(calendarResponse.status, calendarResponse.headers)) {
+      throw new RateLimitedError();
+    }
+    throw new Error("Public GitHub calendar unavailable");
+  }
   const html = await calendarResult.value.text();
   const days = parseContributionCalendar(html, period.periodStart, period.periodEnd);
   const expectedDays = Math.round((Date.parse(period.periodEnd) - Date.parse(period.periodStart)) / 86_400_000) + 1;
@@ -196,6 +175,7 @@ async function fetchPublicSnapshot(username: string, year: number): Promise<Cont
     source: "public",
     sourceMessage: "Public GitHub calendar. Commit, review, and pull request totals are not provided by this source.",
     available: true,
+    rateLimited: false,
     fetchedAt: fetchedAt(calendarResult.value),
     ...period,
     days,
@@ -210,27 +190,27 @@ async function fetchPublicSnapshot(username: string, year: number): Promise<Cont
 }
 
 async function loadSnapshot(username: string, selectedYear: number): Promise<ContributionSnapshot> {
+  // Either leg may hit an empty quota; a success on the other leg still wins.
+  let quotaExceeded = false;
   const token = process.env.GH_PAT?.trim();
   if (token) {
     try {
-      const snapshot = rememberSnapshot(await fetchGraphQLSnapshot(username, selectedYear, token));
-      void putStoredSnapshot(durableSnapshotKey(username, selectedYear), snapshot);
-      return snapshot;
-    } catch {
+      if (!(await checkOutboundQuota())) throw new RateLimitedError("Shared GitHub quota guard tripped.");
+      return rememberSnapshot(await fetchGraphQLSnapshot(username, selectedYear, token));
+    } catch (error) {
+      if (error instanceof RateLimitedError) quotaExceeded = true;
       // A token can expire or lack access; the public calendar remains available.
     }
   }
   try {
-    const snapshot = rememberSnapshot(await fetchPublicSnapshot(username, selectedYear));
-    void putStoredSnapshot(durableSnapshotKey(username, selectedYear), snapshot);
-    return snapshot;
-  } catch {
+    if (!(await checkOutboundQuota())) throw new RateLimitedError("Shared GitHub quota guard tripped.");
+    return rememberSnapshot(await fetchPublicSnapshot(username, selectedYear));
+  } catch (error) {
+    if (error instanceof RateLimitedError) quotaExceeded = true;
+    // Quota exhaustion is explicit: the printer is out of paper, not silently stale.
+    if (quotaExceeded) return outOfPaperSnapshot(username, selectedYear);
     const saved = lastKnownSnapshots.get(`${username.toLowerCase()}:${selectedYear}`);
     if (saved) return { ...saved, source: "fallback", sourceMessage: "GitHub is unavailable. Showing the last successful snapshot for this profile and year." };
-    // Cross-instance recovery: local .db file locally, Turso Cloud in production.
-    // Fail-closed: only exact profile/year snapshots are reused, never guessed zeros.
-    const stored = await getStoredSnapshot(durableSnapshotKey(username, selectedYear));
-    if (stored) return { ...stored, source: "fallback", sourceMessage: "GitHub is unavailable. Showing the last successful snapshot for this profile and year." };
     return unavailableSnapshot(username, selectedYear);
   }
 }

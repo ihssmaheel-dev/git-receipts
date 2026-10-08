@@ -76,3 +76,27 @@ export function contributionPeriod(year: number, now = new Date()): { periodStar
     periodEnd: year === now.getUTCFullYear() ? now.toISOString().slice(0, 10) : `${year}-12-31`,
   };
 }
+
+/** Thrown when GitHub's quota (or our shared outbound guard) is empty: renders OUT OF PAPER. */
+export class RateLimitedError extends Error {
+  constructor(message = "GitHub request quota is empty.") {
+    super(message);
+    this.name = "RateLimitedError";
+  }
+}
+
+/** True for HTTP statuses that signal an empty API quota rather than a missing profile. */
+export function isQuotaStatus(status: number, headers: Headers): boolean {
+  if (status === 429) return true;
+  if (status !== 403) return false;
+  const remaining = headers.get("x-ratelimit-remaining");
+  return remaining !== null && Number(remaining) <= 0;
+}
+
+/** True when a GraphQL payload reports RATE_LIMITED instead of data. */
+export function hasQuotaErrorBody(result: { errors?: unknown }): boolean {
+  if (!Array.isArray(result.errors)) return false;
+  return result.errors.some((error) =>
+    typeof error === "object" && error !== null &&
+    (error as { type?: unknown }).type === "RATE_LIMITED");
+}

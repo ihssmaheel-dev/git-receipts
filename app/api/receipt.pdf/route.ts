@@ -1,12 +1,20 @@
 import { siteConfig } from "@/lib/config";
 import { getReceiptData } from "@/lib/github";
 import { createQrPath, receiptQrTarget } from "@/lib/qr";
+import { checkLimit, clientIpHash, limitFromEnv, rateLimitResponse } from "@/lib/rateLimit";
 import { renderReceiptPdf } from "@/lib/receiptPdf";
 import { parseReceiptRequest } from "@/lib/receiptRequest";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  // PDF rendering is the most expensive export; gate before any validation or fetch.
+  const gate = await checkLimit(`pdf:${clientIpHash(request)}`, {
+    limit: limitFromEnv("RATE_LIMIT_PDF", 10),
+    windowMs: 60_000,
+    store: "turso",
+  });
+  if (!gate.allowed) return rateLimitResponse(gate.retryAfterMs);
   const options = parseReceiptRequest(new URL(request.url));
   if ("error" in options) return new Response(options.error, { status: 400 });
 

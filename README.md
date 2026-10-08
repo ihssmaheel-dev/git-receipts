@@ -48,6 +48,24 @@ GitHub fetches are cached for one hour. A bounded process-local cache deduplicat
 
 Streaks are measured inside the selected calendar-year window. Private and internal repository names are replaced with `PRIVATE REPO #n`, and their URLs are discarded. Counts reflect what GitHub exposes to the configured server token; GitHub's contribution rules still apply.
 
+When GitHub's quota runs dry (GraphQL `RATE_LIMITED`, HTTP 429, or an empty `x-ratelimit-remaining` budget), the printer shows **OUT OF PAPER** instead of generic unavailable copy: the status reads "Out of paper", FEED stays disabled, and the slip itself carries the empty-tray message. A shared per-minute outbound guard trips the same state before one abuser can burn the token quota for everyone. Stale snapshots are still shown for ordinary upstream failures, but quota exhaustion is always explicit, never silent.
+
+## Abuse protection and the public counter
+
+No login; anonymous visitors are bucketed by salted IP hash (`SHA-256(salt + ip)`, first `X-Forwarded-For` entry, `direct` when absent). Raw IPs are never stored. Requests per minute per visitor (override with `RATE_LIMIT_*` env vars):
+
+```text
+GET /                 60   slow-down notice, no GitHub fetch attempted
+GET /api/receipt.svg  30   429 JSON + Retry-After
+GET /api/og           30   429 JSON + Retry-After
+GET /api/receipt.pdf  10   429 JSON + Retry-After (CPU-heavy render)
+POST /api/prints      10   429 JSON + Retry-After
+```
+
+Buckets live in Turso (shared across serverless instances) with a per-instance memory mirror for instant denies; unreachable databases fail open so receipts never break. Own-limit hits return standard 429s — only GitHub's quota shows OUT OF PAPER.
+
+Every finished FEED animation pings `POST /api/prints` once with a client-generated v4 `runKey`. Replays are free but add nothing (`INSERT OR IGNORE`); invalid shapes get 400; oversized bodies get 413. The public total under the printer counts completed prints of available receipts (sample included) and refreshes every minute. The store keeps salted IP hashes beside each counted print for 7 days and rate-limit buckets for 1 hour, then deletes them; nothing else personal is retained.
+
 ## Export endpoints
 
 ```text
@@ -78,11 +96,11 @@ npm run typecheck
 npm run build
 ```
 
-Tests cover input validation, calendar parsing, streak/date boundaries, unavailable metrics, snapshot caching, print transitions, measured paper feed, stale-job cancellation, XML escaping, export parameters, long receipt columns, QR decoding, and vector PDF size/text/link integrity.
+Tests cover input validation, calendar parsing, streak/date boundaries, unavailable metrics, snapshot caching, print transitions, measured paper feed, stale-job cancellation, XML escaping, export parameters, long receipt columns, QR decoding, vector PDF size/text/link integrity, quota classification, out-of-paper rendering, abuse windows and responses, print validation and exactly-once counting, and client/server module boundaries.
 
 ## Deploy on Vercel
 
-Import this folder as a Next.js project, or push it to your repository and import that repository. Keep the standard `npm run build` command. Set `NEXT_PUBLIC_SITE_URL` to your production origin for QR codes, metadata, and README snippets. Optionally set the server-only `GH_PAT`. No contribution bot or scheduled commit action is needed.
+Import this folder as a Next.js project, or push it to your repository and import that repository. Keep the standard `npm run build` command. Set `NEXT_PUBLIC_SITE_URL` to your production origin for QR codes, metadata, and README snippets. Optionally set the server-only `GH_PAT` (public-read GraphQL is enough; it never leaves the server). For the public counter and shared abuse buckets, set server-only `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`; without them the app runs fully on memory. Set `RATE_LIMIT_SALT` to a random string so IP hashes cannot be correlated across services. No contribution bot or scheduled commit action is needed. Security headers (HSTS, frame denial, referrer and permissions policies, nosniff) ship in `next.config.ts`; the content-security policy starts report-only until its violation feed is reviewed.
 
 ## Structure
 
@@ -95,8 +113,12 @@ components/YearPicker/     Custom keyboard-accessible year selection
 components/ActivityCalendar/ Contribution tooltips and keyboard navigation
 hooks/usePrinter.ts        Timing, motion preference, and sound orchestration
 lib/github.ts              Cached GitHub lookups and failure handling
-lib/githubInput.ts         Profile validation and public calendar parser
+lib/githubInput.ts         Profile validation, public calendar parser, quota classifiers
 lib/githubCache.ts         Bounded shared snapshot cache
+lib/receiptData.ts         Pure snapshot builders (testable without server-only)
+lib/rateLimit.ts           Salted IP buckets, shared Turso windows, outbound guard
+lib/prints.ts              Exactly-once print counting and cached public total
+lib/db/client.ts           Local SQLite file or Turso Cloud (counter + buckets only)
 lib/stats.ts               Calendar statistics
 lib/receiptLines.ts         One source of receipt text and numbers
 lib/receiptLayout.ts        Shared measured SVG/PDF geometry

@@ -6,6 +6,7 @@
   "source": "demo",
   "sourceMessage": "A fictional demo dataset for 2026. Enter a GitHub profile to print real contributions.",
   "available": true,
+  "rateLimited": false,
   "fetchedAt": "2026-10-08T00:00:00.000Z",
   "periodStart": "2026-01-01",
   "periodEnd": "2026-10-08",

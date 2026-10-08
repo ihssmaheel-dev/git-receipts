@@ -17,6 +17,7 @@
 .bench { position: relative; padding: 20px 30px 0; background-color: #e6ecef; background-image: linear-gradient(#cad7df26 1px, transparent 1px), linear-gradient(90deg,#cad7df26 1px,transparent 1px); background-size: 24px 24px; border: 1px solid #d4dfe6; border-radius: 10px; overflow: hidden; }
 .benchHeading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 22px; color: #607584; font: 10px var(--font-mono); letter-spacing: .6px; }
 .benchHeading > span:last-child { max-width: 55%; text-align: right; overflow-wrap: anywhere; }
+.printCount { min-width: 0; max-width: 40%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .assembly { width: min(440px,100%); position: relative; margin: 0 auto 13px; --paper-height: 460px; --machine-height: 310px; --below-slot: 214.4px; min-height: 300px; isolation: isolate; overflow: hidden; }
 .housingBack, .housingFront { position: absolute; width: 100%; height: var(--machine-height); bottom: 0; left: 0; pointer-events: none; }
 .housingBack { z-index: 0; filter: drop-shadow(0 8px 12px #49657816); }
@@ -31,6 +32,9 @@
 .assembly[data-state=done]:not([data-reduced=true]) .paperWeb::after { opacity: 1; }
 .paperSurface { position: relative; }
 .paperSurface > article { box-shadow: inset 5px 0 9px -7px #11111155, inset -5px 0 9px -7px #11111155; }
+.paperViewerTrigger { position: absolute; inset: 0; z-index: 5; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.paperViewerTrigger:disabled { cursor: default; }
+.paperWindow:has(.paperViewerTrigger:hover) .paperSurface > article { filter: brightness(1.03); }
 .printHeadShadow { position: absolute; bottom: 0; left: 0; right: 0; height: 17px; background: linear-gradient(transparent,#2525222b); pointer-events: none; }
 .assembly[data-state=warming] .paperWeb { opacity: 0; }
 .assembly[data-state=handshake] .paperWeb { opacity: 1; }

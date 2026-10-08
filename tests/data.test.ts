@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import demo from "../data/fallback.json";
 import { createSnapshotCache } from "../lib/githubCache";
-import { contributionPeriod, normalizeYear, parseContributionCalendar, parseGitHubUsername } from "../lib/githubInput";
+import { contributionPeriod, hasQuotaErrorBody, isQuotaStatus, normalizeYear, parseContributionCalendar, parseGitHubUsername, RateLimitedError } from "../lib/githubInput";
+import { outOfPaperSnapshot, slowDownReceiptData } from "../lib/receiptData";
 import { buildReceiptLines, receiptLineText, receiptNumber } from "../lib/receiptLines";
 import { calculateStats, computeStreaks, normalizeDays } from "../lib/stats";
 import type { ContributionSnapshot } from "../lib/types";
@@ -10,7 +11,7 @@ import type { ContributionSnapshot } from "../lib/types";
 function snapshot(overrides: Partial<ContributionSnapshot> = {}): ContributionSnapshot {
   return {
     username: "octocat", displayName: "Octocat", avatarUrl: null, year: 2025,
-    source: "live", sourceMessage: "Test snapshot", available: true,
+    source: "live", sourceMessage: "Test snapshot", available: true, rateLimited: false,
     fetchedAt: "2025-01-05T12:00:00Z", periodStart: "2025-01-01", periodEnd: "2025-01-05",
     days: [{ date: "2025-01-01", count: 2 }, { date: "2025-01-02", count: 3 },
       { date: "2025-01-03", count: 0 }, { date: "2025-01-04", count: 5 }, { date: "2025-01-05", count: 0 }],
@@ -204,6 +205,42 @@ test("unavailable snapshots do not produce numerical receipts", () => {
   const lines = buildReceiptLines(data, calculateStats(data));
   assert.ok(lines.some((line) => line.type === "text" && line.text === "DATA UNAVAILABLE"));
   assert.equal(lines.filter((line) => line.type === "item" || line.type === "total").length, 0);
+});
+
+test("quota exhaustion renders OUT OF PAPER without fabricating totals", () => {
+  const empty = outOfPaperSnapshot("octocat", 2025);
+  assert.equal(empty.available, false);
+  assert.equal(empty.rateLimited, true);
+  const lines = buildReceiptLines(empty, calculateStats(empty));
+  assert.ok(lines.some((line) => line.type === "text" && line.text === "OUT OF PAPER"));
+  assert.ok(!lines.some((line) => line.type === "text" && line.text === "DATA UNAVAILABLE"));
+  assert.equal(lines.filter((line) => line.type === "item" || line.type === "total").length, 0);
+  assert.ok(!lines.some((line) => line.type === "footer" && line.text.startsWith("No. ")));
+});
+
+test("quota classifiers separate empty limits from missing profiles", () => {
+  assert.equal(new RateLimitedError() instanceof Error, true);
+  assert.equal(new RateLimitedError().name, "RateLimitedError");
+  assert.equal(isQuotaStatus(429, new Headers()), true);
+  assert.equal(isQuotaStatus(403, new Headers({ "x-ratelimit-remaining": "0" })), true);
+  assert.equal(isQuotaStatus(403, new Headers()), false);
+  assert.equal(isQuotaStatus(403, new Headers({ "x-ratelimit-remaining": "12" })), false);
+  assert.equal(isQuotaStatus(404, new Headers()), false);
+  assert.equal(isQuotaStatus(500, new Headers()), false);
+  assert.equal(hasQuotaErrorBody({ errors: [{ type: "RATE_LIMITED" }] }), true);
+  assert.equal(hasQuotaErrorBody({ errors: [{ message: "Something went wrong" }] }), false);
+  assert.equal(hasQuotaErrorBody({}), false);
+});
+
+test("our own abuse gate slows down without touching GitHub", () => {
+  const slowed = slowDownReceiptData(2025, "octocat", 90_000);
+  assert.equal(slowed.snapshot.available, false);
+  assert.equal(slowed.snapshot.rateLimited, false);
+  assert.equal(slowed.snapshot.username, "octocat");
+  assert.ok(slowed.snapshot.sourceMessage.includes("90s"));
+  const anonymous = slowDownReceiptData(2025, "not a user!!", 1000);
+  assert.equal(anonymous.snapshot.username, "limited");
+  assert.ok(anonymous.snapshot.sourceMessage.includes("1s"));
 });
 
 test("bundled demo totals match its calendar and receipt items", () => {

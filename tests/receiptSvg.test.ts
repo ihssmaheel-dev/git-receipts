@@ -6,8 +6,10 @@ import { createQrPath, receiptPermalink, receiptQrTarget } from "../lib/qr";
 import { layoutReceipt, receiptInkAreas, receiptPaperMargin, receiptTextWidth } from "../lib/receiptLayout";
 import { parseReceiptRequest } from "../lib/receiptRequest";
 import { escapeXml, renderReceiptSvg } from "../lib/receiptSvg";
+import { outOfPaperSnapshot } from "../lib/receiptData";
 import { sealInkOverlap } from "../lib/receiptSeal";
 import { buildReceiptLines } from "../lib/receiptLines";
+import { calculateStats } from "../lib/stats";
 import type { ReceiptData } from "../lib/types";
 
 const data: ReceiptData = {
@@ -19,6 +21,7 @@ const data: ReceiptData = {
     source: "demo",
     sourceMessage: "Demo data",
     available: true,
+    rateLimited: false,
     fetchedAt: "2025-12-31T00:00:00Z",
     periodStart: "2025-01-01",
     periodEnd: "2025-12-31",
@@ -278,6 +281,16 @@ test("older multi-achievement lines yield one priority seal and the header numbe
   assert.equal(seals.length, 1);
   assert.equal(seals[0].value, "30+ DAY STREAK ★ STREAK KEEPER");
   assert.equal(layout.elements.find((element) => element.type === "barcode")?.barcode.value, "2025-1234-200");
+});
+
+test("an out-of-paper receipt prints the empty-tray copy with no totals or codes", () => {
+  const empty = outOfPaperSnapshot("octocat", 2025);
+  const lines = buildReceiptLines(empty, calculateStats(empty));
+  const svg = renderReceiptSvg({ data: { snapshot: empty, stats: calculateStats(empty), lines }, animated: false });
+  assert.ok(svg.includes("OUT OF PAPER"));
+  assert.ok(!svg.includes("DATA UNAVAILABLE"));
+  assert.ok(!svg.includes('class="receipt-barcode"'), "No receipt number means no barcode");
+  assert.ok(!svg.includes('class="receipt-seal"'), "Empty trays earn no achievement stamp");
 });
 
 test("local QR codes point to an accessible GitHub profile and public QR codes retain the selected year", () => {

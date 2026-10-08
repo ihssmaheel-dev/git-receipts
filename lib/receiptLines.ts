@@ -36,7 +36,16 @@ export function buildReceiptLines(
   );
 
   if (!snapshot.available) {
-    lines.push(
+    if (snapshot.rateLimited) {
+      lines.push(
+        { type: "text", text: "OUT OF PAPER", align: "center" },
+        { type: "text", text: "The paper tray is empty.", align: "center" },
+        { type: "text", text: "Try again soon for a fresh slip.", align: "center" },
+        { type: "divider" },
+        { type: "footer", text: "END OF RECEIPT · OUT OF PAPER" },
+      );
+      return lines;
+    }    lines.push(
       { type: "text", text: "DATA UNAVAILABLE", align: "center" },
       { type: "text", text: "GitHub could not provide this year.", align: "center" },
       { type: "text", text: "Try loading the profile again.", align: "center" },
