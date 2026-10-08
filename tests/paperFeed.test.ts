@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePaperFeed } from "../lib/paperFeed";
+import { calculatePaperFeed, resolveLineEnds } from "../lib/paperFeed";
 
 const paper = {
   visibleLines: 0,
@@ -48,4 +48,21 @@ test("invalid measurements and progress keep paper inside its physical bounds", 
   assert.equal(calculatePaperFeed({ ...paper, state: "printing", lineProgress: Number.NaN }), 0);
   assert.equal(calculatePaperFeed({ ...paper, state: "printing", visibleLines: 100, tailProgress: 2 }), 300);
   assert.equal(calculatePaperFeed({ ...paper, state: "printing", height: Number.NaN, lineProgress: 1 }), 0);
+});
+
+test("missing or mismatched measurements fall back to evenly spaced rows", () => {
+  assert.deepEqual(resolveLineEnds([], 3, 300), [100, 200, 300]);
+  assert.deepEqual(resolveLineEnds([90], 3, 300), [100, 200, 300]);
+  assert.deepEqual(resolveLineEnds([90, 125, 170, 200], 3, 300), [100, 200, 300]);
+  assert.deepEqual(resolveLineEnds([90, 125, 170], 3, 300), [90, 125, 170]);
+  assert.deepEqual(resolveLineEnds([], 0, 300), []);
+  assert.deepEqual(resolveLineEnds([], 3, Number.NaN), []);
+  // Fallback rows move during the line phase instead of jumping at the tail.
+  const fallback = resolveLineEnds([], 3, 300);
+  assert.equal(calculatePaperFeed({ ...paper, state: "printing", lineEnds: fallback, lineProgress: 0.5 }), 50);
+  assert.equal(calculatePaperFeed({ ...paper, state: "printing", lineEnds: fallback, visibleLines: 1 }), 100);
+  assert.equal(
+    calculatePaperFeed({ ...paper, state: "printing", lineEnds: fallback, visibleLines: 0, lineProgress: 1 }),
+    calculatePaperFeed({ ...paper, state: "printing", lineEnds: fallback, visibleLines: 1 }),
+  );
 });

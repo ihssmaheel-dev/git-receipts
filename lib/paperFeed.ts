@@ -38,3 +38,19 @@ export function calculatePaperFeed({
   }
   return start + (paperHeight - start) * fraction(tailProgress);
 }
+
+/**
+ * Measured row bottoms drive the feed; when measurement raced layout (or the
+ * row count drifted from the printed lines), fall back to evenly spaced rows
+ * so every line still moves paper instead of sitting retracted until the tail.
+ */
+export function resolveLineEnds(
+  lineEnds: readonly number[],
+  lineCount: number,
+  height: number,
+): number[] {
+  const count = Number.isFinite(lineCount) ? Math.floor(lineCount) : 0;
+  if (count > 0 && lineEnds.length === count) return [...lineEnds];
+  if (count <= 0 || !Number.isFinite(height) || height <= 0) return [...lineEnds];
+  return Array.from({ length: count }, (_, index) => height * (index + 1) / count);
+}

@@ -2,7 +2,7 @@ import { formatReceiptNumber } from "./receiptLines";
 import type { ReceiptLine } from "./types";
 import type { ReceiptQr } from "./qr";
 import { createReceiptBarcode, type ReceiptBarcode } from "./receiptBarcode";
-import { createReceiptSeal, getReceiptSealOverlay, isReceiptSealText, type ReceiptSeal } from "./receiptSeal";
+import { createReceiptSeal, getReceiptSealOverlay, isReceiptSealText, type ReceiptSeal, type ReceiptSealInkArea } from "./receiptSeal";
 
 export type ReceiptText = {
   type: "text";
@@ -223,8 +223,20 @@ export function layoutReceipt(
       protectedAreas: elements.flatMap((element) => element.type === "qr"
         ? [{ x: element.x, y: element.y, width: element.width, height: element.width }]
         : element.type === "barcode" ? [{ x: element.x, y: element.y, width: element.width, height: element.height }] : []),
+      inkAreas: receiptInkAreas(elements),
     });
     if (overlay) elements.unshift({ type: "seal", value: seal.text, seal, ...overlay });
   }
   return { width, height, elements };
+}
+
+/** Printed-text boxes so the achievement seal favors empty paper over readable rows. */
+export function receiptInkAreas(elements: ReceiptLayout["elements"]): ReceiptSealInkArea[] {
+  return elements.flatMap((element) => {
+    if (element.type !== "text") return [];
+    const textWidth = receiptTextWidth(element.value, element.size);
+    const x = element.align === "center" ? element.x - textWidth / 2
+      : element.align === "right" ? element.x - textWidth : element.x;
+    return [{ x, y: element.y - element.size, width: textWidth, height: element.size * 1.3 }];
+  });
 }

@@ -42,7 +42,21 @@ function AchievementStamp({ seal, animate, onPlacementChange }: { seal: ReceiptS
           const box = element.getBoundingClientRect();
           return { x: box.left - paperBox.left, y: box.top - paperBox.top, width: box.width, height: box.height };
         });
-      const next = getReceiptSealOverlay(seal, { width: paperBox.width, top: totalBox.bottom - paperBox.top, bottom: paperBox.height - 20, qrArea, protectedAreas });
+      // Printed rows and the QR caption count as ink: the seal favors empty
+      // paper (for example beside the QR) over readable text. Each child's own
+      // box is used so centered captions don't read as full-width strips.
+      const inkAreas = [
+        ...Array.from(paper.querySelectorAll("[data-receipt-line]")).flatMap((row) =>
+          Array.from(row.children).map((element) => {
+            const box = (element as HTMLElement).getBoundingClientRect();
+            return { x: box.left - paperBox.left, y: box.top - paperBox.top, width: box.width, height: box.height };
+          }).filter((area) => area.width > 0 && area.height > 0)),
+        ...Array.from(paper.querySelectorAll("[data-receipt-qr] span")).map((element) => {
+          const box = (element as HTMLElement).getBoundingClientRect();
+          return { x: box.left - paperBox.left, y: box.top - paperBox.top, width: box.width, height: box.height };
+        }).filter((area) => area.width > 0 && area.height > 0),
+      ];
+      const next = getReceiptSealOverlay(seal, { width: paperBox.width, top: totalBox.bottom - paperBox.top, bottom: paperBox.height - 20, qrArea, protectedAreas, inkAreas });
       onPlacementChange(!!next);
       setPlacement((previous) => previous && next && Math.abs(previous.x - next.x) < .5 && Math.abs(previous.y - next.y) < .5 && Math.abs(previous.scale - next.scale) < .001 ? previous : next);
     };

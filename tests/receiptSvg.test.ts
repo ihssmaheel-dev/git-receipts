@@ -3,9 +3,10 @@ import test from "node:test";
 import jsQR from "jsqr";
 import { BinaryBitmap, BitArray, Code128Reader, HybridBinarizer, QRCodeReader, RGBLuminanceSource } from "@zxing/library";
 import { createQrPath, receiptPermalink, receiptQrTarget } from "../lib/qr";
-import { layoutReceipt, receiptPaperMargin, receiptTextWidth } from "../lib/receiptLayout";
+import { layoutReceipt, receiptInkAreas, receiptPaperMargin, receiptTextWidth } from "../lib/receiptLayout";
 import { parseReceiptRequest } from "../lib/receiptRequest";
 import { escapeXml, renderReceiptSvg } from "../lib/receiptSvg";
+import { sealInkOverlap } from "../lib/receiptSeal";
 import { buildReceiptLines } from "../lib/receiptLines";
 import type { ReceiptData } from "../lib/types";
 
@@ -201,12 +202,15 @@ test("one small earned GitHub seal varies around the QR without changing receipt
     assert.ok(seal.x >= 14);
     assert.ok(seal.x + diameter <= layout.width - 14);
     assert.ok(Math.abs(seal.seal.rotation) >= 2 && Math.abs(seal.seal.rotation) <= 6);
-    if (seal.seal.placement === "before") {
-      assert.ok(seal.y + diameter <= qrPlacement.y - 2, "Before impressions sit directly above the QR quiet zone");
-    } else {
-      assert.ok(seal.y + diameter / 2 >= qrPlacement.y + qrPlacement.width - diameter * 0.3,
-        "After impressions flank the QR's lower end without running into the barcode");
-    }
+    // The winner covers no more text than stamping directly above the QR: an
+    // empty flank beside the QR beats burying readable footer rows.
+    const ink = receiptInkAreas(layout.elements.filter((element) => element.type !== "seal"));
+    const jitter = Math.abs(Math.round(seal.seal.centerX)) % 7;
+    const centeredX = Math.max(14, Math.min(layout.width - 14 - diameter,
+      layout.width / 2 + (seal.seal.centerX - 180) - diameter / 2));
+    const centeredY = qrPlacement.y - diameter - 2 - jitter;
+    assert.ok(sealInkOverlap(seal.x, seal.y, diameter, ink) <= sealInkOverlap(centeredX, centeredY, diameter, ink),
+      "Impressions favor empty paper over printed rows");
     qrSides.add(seal.seal.placement);
     const barcode = layout.elements.find((element) => element.type === "barcode")!;
     for (const protectedElement of [qrPlacement, barcode]) {

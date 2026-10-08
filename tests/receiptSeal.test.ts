@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildReceiptLines } from "../lib/receiptLines";
-import { chooseReceiptAchievement, createReceiptSeal, getReceiptSealOverlay, isReceiptSealText, renderReceiptSealSvg } from "../lib/receiptSeal";
+import { chooseReceiptAchievement, createReceiptSeal, getReceiptSealOverlay, isReceiptSealText, renderReceiptSealSvg, sealInkOverlap } from "../lib/receiptSeal";
 import type { ContributionSnapshot, ContributionStats } from "../lib/types";
 
 const snapshot: ContributionSnapshot = {
@@ -159,4 +159,29 @@ test("impossible or invalid overlay bounds never obscure a protected code", () =
     qrArea: { x: 128, y: Number.NaN, width: 104, height: 104 } }), null);
   assert.equal(getReceiptSealOverlay(seal, { width: 360, top: 100, bottom: 400,
     protectedAreas: [{ x: 40, y: 200, width: -10, height: 32 }] }), null);
+});
+
+test("a text wall above the QR sends the seal to the empty flank beside it", () => {
+  assert.equal(sealInkOverlap(0, 0, 96, []), 0);
+  assert.equal(sealInkOverlap(0, 0, 96, [{ x: 10, y: 10, width: 0, height: 10 }]), 0);
+  assert.equal(sealInkOverlap(0, 0, 100, [{ x: 50, y: 50, width: 100, height: 100 }]), 2500);
+  const seal = createReceiptSeal(buildReceiptLines(snapshot, { ...emptyStats, totalContributions: 1000 }))!;
+  const qr = { x: 128, y: 280, width: 104, height: 104 };
+  const barcode = { x: 40, y: 426, width: 280, height: 32 };
+  const bounds = { width: 360, top: 100, bottom: 482, qrArea: qr, protectedAreas: [barcode] };
+  const plain = getReceiptSealOverlay({ ...seal, placement: "before" }, bounds)!;
+  assert.ok(plain.y + 96 <= qr.y - 2, "Without ink data the centered impression still wins");
+  // Footer rows fill the band directly above the QR, leaving the flanks empty.
+  const ink: { x: number; y: number; width: number; height: number }[] = [
+    { x: 24, y: plain.y, width: 312, height: 96 },
+  ];
+  const placed = getReceiptSealOverlay({ ...seal, placement: "before" }, { ...bounds, inkAreas: ink })!;
+  assert.ok(placed.x + 96 <= qr.x - 2 || placed.x >= qr.x + qr.width + 2,
+    "The seal flanks the QR instead of burying readable rows");
+  assert.equal(sealInkOverlap(placed.x, placed.y, 96, ink), 0);
+  for (const area of [qr, barcode]) {
+    const overlaps = placed.x < area.x + area.width + 2 && placed.x + 96 > area.x - 2
+      && placed.y < area.y + area.height + 2 && placed.y + 96 > area.y - 2;
+    assert.equal(overlaps, false);
+  }
 });

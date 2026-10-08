@@ -17,6 +17,28 @@ export type ReceiptSeal = {
 
 export type ReceiptSealProtectedArea = { x: number; y: number; width: number; height: number };
 export type ReceiptSealOverlay = { x: number; y: number; scale: number };
+/** Printed text a candidate impression would punch through; empty paper scores best. */
+export type ReceiptSealInkArea = { x: number; y: number; width: number; height: number };
+
+/** Area of paper text a candidate impression would cover. Invalid boxes are ignored. */
+export function sealInkOverlap(
+  x: number,
+  y: number,
+  diameter: number,
+  inkAreas: readonly ReceiptSealInkArea[] = [],
+): number {
+  let overlap = 0;
+  for (const area of inkAreas) {
+    if (![area.x, area.y, area.width, area.height].every(Number.isFinite)
+      || area.width <= 0 || area.height <= 0) continue;
+    const horizontal = Math.min(x + diameter, area.x + area.width) - Math.max(x, area.x);
+    if (horizontal <= 0) continue;
+    const vertical = Math.min(y + diameter, area.y + area.height) - Math.max(y, area.y);
+    if (vertical <= 0) continue;
+    overlap += horizontal * vertical;
+  }
+  return overlap;
+}
 
 /** Fit an impression over existing ink without changing paper length or obscuring machine-readable codes. */
 export function getReceiptSealOverlay(seal: ReceiptSeal, bounds: {
@@ -28,6 +50,8 @@ export function getReceiptSealOverlay(seal: ReceiptSeal, bounds: {
   /** The complete QR quiet-zone rectangle, used as the placement anchor. */
   qrArea?: ReceiptSealProtectedArea;
   protectedAreas?: readonly ReceiptSealProtectedArea[];
+  /** Printed text boxes; candidates covering less text win, ties keep today's order. */
+  inkAreas?: readonly ReceiptSealInkArea[];
 }): ReceiptSealOverlay | null {
   const { width, top, bottom } = bounds;
   if (![width, top, bottom, seal.diameter, seal.centerX].every(Number.isFinite)
@@ -47,19 +71,30 @@ export function getReceiptSealOverlay(seal: ReceiptSeal, bounds: {
   const jitter = Math.abs(Math.round(seal.centerX)) % 7;
   const sides = seal.centerX < 180 ? ["left", "right"] as const : ["right", "left"] as const;
   const modes = seal.placement === "after" ? ["after", "before"] as const : ["before", "after"] as const;
+  // Without ink data every overlap is zero, so the first fitting candidate wins:
+  // identical winners to the previous first-fit order. With ink, the emptiest fit wins.
+  let best: ReceiptSealOverlay | null = null;
+  let bestOverlap = Infinity;
+  const consider = (x: number, y: number, diameter: number) => {
+    if (!fits(x, y, diameter)) return;
+    const overlap = sealInkOverlap(x, y, diameter, bounds.inkAreas ?? []);
+    if (overlap < bestOverlap) {
+      bestOverlap = overlap;
+      best = { x, y, scale: diameter / seal.diameter };
+    }
+  };
   for (const mode of modes) for (const diameter of [96, 88, 80]) {
     if (diameter > seal.diameter || diameter > width - inset * 2) continue;
     const centeredX = Math.max(inset, Math.min(width - inset - diameter, preferredCenter - diameter / 2));
     if (!qr) {
       for (let y = top + 4; y >= Math.max(0, top - 24); y -= 2) {
-        if (fits(centeredX, y, diameter)) return { x: centeredX, y, scale: diameter / seal.diameter };
+        consider(centeredX, y, diameter);
       }
       continue;
     }
     // "Before" crosses existing footer ink immediately above the QR, without adding a row.
     if (mode === "before") {
-      const y = qr.y - diameter - clearance - jitter;
-      if (fits(centeredX, y, diameter)) return { x: centeredX, y, scale: diameter / seal.diameter };
+      consider(centeredX, qr.y - diameter - clearance - jitter, diameter);
     }
     // A printed barcode usually prevents a whole seal beneath the QR. Flank the lower
     // QR instead, moving slightly upward only as far as needed to keep both codes clear.
@@ -68,11 +103,11 @@ export function getReceiptSealOverlay(seal: ReceiptSeal, bounds: {
       const preferredY = mode === "after" ? qr.y + qr.height - diameter / 2 + jitter : qr.y - diameter * .65 + jitter;
       const lowestY = mode === "after" ? qr.y + qr.height - diameter * .8 : qr.y - diameter;
       for (let y = preferredY; y >= lowestY; y -= 2) {
-        if (fits(x, y, diameter)) return { x, y, scale: diameter / seal.diameter };
+        consider(x, y, diameter);
       }
     }
   }
-  return null;
+  return best;
 }
 
 type AchievementMetric = "longestStreak" | "activeDays" | "totalContributions" | "reviews" | "pullRequests" | "totalCommits";

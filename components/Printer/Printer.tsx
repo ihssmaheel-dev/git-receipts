@@ -7,7 +7,7 @@ import { PrinterHousingBack, PrinterHousingFront } from "./PrinterHousing";
 import { Receipt } from "@/components/Receipt/Receipt";
 import { useReceiptPreferences } from "@/components/Receipt/ReceiptPreferences";
 import { usePrinter } from "@/hooks/usePrinter";
-import { calculatePaperFeed } from "@/lib/paperFeed";
+import { calculatePaperFeed, resolveLineEnds } from "@/lib/paperFeed";
 import { receiptLineText } from "@/lib/receiptLines";
 import { createReceiptSeal, isReceiptSealText } from "@/lib/receiptSeal";
 import type { ReceiptData } from "@/lib/types";
@@ -73,15 +73,11 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
       if (!active || !paper || !window || !assembly) return;
       const scale = window.clientWidth / PAPER_WIDTH;
       const height = paper.offsetHeight;
-      // Layout offsets stay accurate when the cut sheet is tilted or curled.
+      // Rect differences are translation-invariant (identical mid-print and at
+      // rest) and ignore offsetParent quirks, unlike an offsetTop chain.
+      const paperTop = paper.getBoundingClientRect().top;
       const ends = Array.from(paper.querySelectorAll<HTMLElement>("[data-receipt-line]"))
-        .map((line) => {
-          let bottom = line.offsetTop + line.offsetHeight;
-          for (let parent = line.offsetParent as HTMLElement | null; parent && parent !== paper; parent = parent.offsetParent as HTMLElement | null) {
-            bottom += parent.offsetTop;
-          }
-          return bottom;
-        });
+        .map((line) => line.getBoundingClientRect().bottom - paperTop);
       const machineScale = assembly.clientWidth / MACHINE_WIDTH;
       setGeometry((previous) => {
         if (Math.abs(previous.height - height) < 0.5 && Math.abs(previous.scale - scale) < 0.001 &&
@@ -99,14 +95,17 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl }: PrinterProps) 
     return () => { active = false; observer.disconnect(); };
   }, [data.lines]);
 
+  // Measured rows drive the feed; evenly spaced rows stand in when measurement
+  // raced layout, so the slip still emerges line by line instead of suddenly.
+  const lineEnds = resolveLineEnds(geometry.ends, data.lines.length, geometry.height);
   const fullFeed = calculatePaperFeed({
     state: engine.state, visibleLines: engine.visibleLines,
     lineProgress: engine.lineProgress, tailProgress: engine.tailProgress,
-    lineEnds: geometry.ends, height: geometry.height,
+    lineEnds, height: geometry.height,
   });
   // Keep the machine in view. Longer paper travels past the camera's top edge;
   // the complete receipt remains available in the full-size viewer.
-  const fed = engine.state === "idle" ? Math.min(geometry.ends[3] ?? 190, geometry.height) : fullFeed;
+  const fed = engine.state === "idle" ? Math.min(lineEnds[3] ?? 190, geometry.height) : fullFeed;
   const detached = engine.state === "cutting" || engine.state === "done";
   const paperY = (geometry.height - fed) * geometry.scale + 8 - (detached ? 2 * geometry.machineScale : 0);
   const physicalHeight = geometry.height * geometry.scale + 8;
