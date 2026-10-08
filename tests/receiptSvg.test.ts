@@ -51,7 +51,7 @@ const data: ReceiptData = {
     topRepos: [],
   },
   lines: [
-    { type: "heading", text: "COMMIT PRINTER" },
+    { type: "heading", text: "GIT RECEIPTS" },
     { type: "pair", label: 'repo<&"', value: "123" },
     { type: "text", text: "<script>alert('x')</script>" },
     { type: "total", label: "CONTRIBUTIONS", value: 1234 },
@@ -79,7 +79,7 @@ test("README animation runs once, honors reduced motion, and can be disabled", (
 });
 
 test("QR modules decode to the exact selected receipt, including auto-version long URLs", () => {
-  for (const url of [receiptPermalink("https://commit-printer.example", "octocat", 2025), `https://example.com/${"a".repeat(300)}?user=octocat&year=2025`]) {
+  for (const url of [receiptPermalink("https://git-receipts.example", "octocat", 2025), `https://example.com/${"a".repeat(300)}?user=octocat&year=2025`]) {
     const qr = createQrPath(url);
     const scale = 6;
     const pixels = (qr.size + 8) * scale;
@@ -264,7 +264,7 @@ test("optional SVG stamp has one punch after printing and static reduced-motion/
 
 test("older multi-achievement lines yield one priority seal and the header number can identify its barcode", () => {
   const lines: ReceiptData["lines"] = [
-    { type: "heading", text: "COMMIT PRINTER" },
+    { type: "heading", text: "GIT RECEIPTS" },
     { type: "pair", label: "BILL NO.", value: "2025-1234-200" },
     { type: "pair", label: "ACCOUNT", value: "@demo" },
     { type: "total", label: "TOTAL CONTRIBUTIONS", value: 1234 },
@@ -298,12 +298,12 @@ test("local QR codes point to an accessible GitHub profile and public QR codes r
     assert.deepEqual(receiptQrTarget(host, "octocat", 2025), { url: "https://github.com/octocat", label: "OPEN GITHUB PROFILE" });
   }
   assert.equal(receiptQrTarget("http://localhost:3000", "", 2025).url, "https://github.com");
-  assert.deepEqual(receiptQrTarget("https://commit-printer.example", "octocat", 2025), { url: "https://commit-printer.example/?user=octocat&year=2025", label: "OPEN THIS RECEIPT" });
+  assert.deepEqual(receiptQrTarget("https://git-receipts.example", "octocat", 2025), { url: "https://git-receipts.example/?user=octocat&year=2025", label: "OPEN THIS RECEIPT" });
 });
 
 test("long repository names and values fit inside thermal paper with no intersecting columns", () => {
   const layout = layoutReceipt([
-    { type: "heading", text: "COMMIT PRINTER", detail: "A YEAR OF SHOWING UP" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "A YEAR OF SHOWING UP" },
     { type: "text", text: `@${"a".repeat(39)}`, align: "center" },
     { type: "pair", label: `owner/${"repository".repeat(10)}`, value: "1,234,567" },
     { type: "pair", label: "BUSIEST DAY", value: "1,234,567,890 CONTRIBUTIONS" },
@@ -327,7 +327,7 @@ test("long repository names and values fit inside thermal paper with no intersec
 });
 
 test("QR auto-selects its size and uses safe module path commands", () => {
-  const url = receiptPermalink("https://commit-printer.example", "octocat", 2025);
+  const url = receiptPermalink("https://git-receipts.example", "octocat", 2025);
   const qr = createQrPath(url);
   assert.match(qr.path, /^[M0-9 hvHz]+$/);
   assert.equal(qr.size % 4, 1);

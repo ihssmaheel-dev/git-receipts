@@ -16,7 +16,7 @@ const lastKnownSnapshots = new Map<string, ContributionSnapshot>();
 const getCachedSnapshot = createSnapshotCache();
 
 const contributionsQuery = `
-  query CommitPrinter($login: String!, $from: DateTime!, $to: DateTime!) {
+  query GitReceipts($login: String!, $from: DateTime!, $to: DateTime!) {
     user(login: $login) {
       login
       name
@@ -81,7 +81,7 @@ async function fetchGraphQLSnapshot(username: string, year: number, token: strin
   const period = contributionPeriod(year);
   const response = await fetch(GITHUB_GRAPHQL_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "User-Agent": "Commit-Printer" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "User-Agent": "Git-Receipts" },
     body: JSON.stringify({
       query: contributionsQuery,
       variables: { login: username, from: `${period.periodStart}T00:00:00Z`, to: `${period.periodEnd}T23:59:59Z` },
@@ -137,7 +137,7 @@ async function fetchGraphQLSnapshot(username: string, year: number, token: strin
 async function fetchPublicSnapshot(username: string, year: number): Promise<ContributionSnapshot> {
   const period = contributionPeriod(year);
   const publicOptions = {
-    headers: { "User-Agent": "Commit-Printer", "Accept-Language": "en-US,en;q=0.8" },
+    headers: { "User-Agent": "Git-Receipts", "Accept-Language": "en-US,en;q=0.8" },
     next: { revalidate: CACHE_SECONDS },
     cache: "force-cache" as const,
     signal: AbortSignal.timeout(10_000),

@@ -160,7 +160,7 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "commit-receipt-" + data.snapshot.username + "-" + data.snapshot.year + "." + extension;
+    anchor.download = "git-receipt-" + data.snapshot.username + "-" + data.snapshot.year + "." + extension;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -224,7 +224,7 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
 
   return <Dialog.Root open={receiptOpen} onOpenChange={setReceiptOpen}><div className={styles.studio} data-theme={theme}>
     <div className={styles.controlBar}>
-      <div className={styles.modelLabel}><span className={styles.statusDot} data-busy={engine.isBusy} /> CP–02 <span>/ DIRECT THERMAL</span></div>
+      <div className={styles.modelLabel}><span className={styles.statusDot} data-busy={engine.isBusy} /> GR–02 <span>/ DIRECT THERMAL</span></div>
       <div className={styles.topActions}>
         <button className={styles.soundToggle} onClick={engine.toggleMuted} aria-label={engine.muted ? "Enable printer sound" : "Mute printer sound"} aria-pressed={!engine.muted}>{engine.muted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}<span>Sound {engine.muted ? "off" : "on"}</span></button>
         <button className={styles.primaryPrint} onClick={printReceipt} disabled={engine.isBusy || !available || !!exporting}><ReaderIcon />{engine.isBusy ? "Printing…" : engine.state === "done" ? "Print again" : "Print receipt"}<ArrowRightIcon /></button>

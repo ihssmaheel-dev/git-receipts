@@ -146,7 +146,7 @@ test("one achievement seal selects the highest reached threshold and bill number
   ]);
   assert.equal(receiptNumber(awarded.data, awarded.stats), "2025-1000-200");
   assert.deepEqual(awarded.lines.slice(0, 3), [
-    { type: "heading", text: "COMMIT PRINTER", detail: "GITHUB ACTIVITY RECEIPT" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY RECEIPT" },
     { type: "pair", label: "BILL NO.", value: "2025-1000-200" },
     { type: "pair", label: "ACCOUNT", value: "@octocat" },
   ]);

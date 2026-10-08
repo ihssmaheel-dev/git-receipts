@@ -15,7 +15,7 @@ interface WindowState {
 /** Best-effort per-instance mirror; Turso stays authoritative across instances. */
 const memoryBuckets = new Map<string, WindowState>();
 
-const DEV_SALT = "commit-printer-dev-salt";
+const DEV_SALT = "git-receipts-dev-salt";
 let saltWarned = false;
 let dbWarned = false;
 

@@ -25,7 +25,7 @@ export function buildReceiptLines(
 ): ReceiptLine[] {
   const number = receiptNumber(snapshot, stats);
   const lines: ReceiptLine[] = [
-    { type: "heading", text: "COMMIT PRINTER", detail: "GITHUB ACTIVITY RECEIPT" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY RECEIPT" },
   ];
   if (number) lines.push({ type: "pair", label: "BILL NO.", value: number });
   lines.push(

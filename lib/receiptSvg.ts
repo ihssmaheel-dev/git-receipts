@@ -54,7 +54,7 @@ export function renderReceiptSvg({ data, theme = "light", animated = true, showS
   const teeth: string[] = [];
   for (let x = width; x >= 0; x -= 4) teeth.push(`${x},${height - (teeth.length % 2 === 0 ? 4 : 0)}`);
   const paper = `0,0 ${width},0 ${teeth.join(" ")} 0,0`;
-  const title = `Commit receipt for ${data.snapshot.username}, ${data.snapshot.year}`;
+  const title = `Git receipt for ${data.snapshot.username}, ${data.snapshot.year}`;
   const description = data.lines.filter((line) => showStamp || !(line.type === "text" && isReceiptSealText(line.text))).map(receiptLineText).filter(Boolean).join(". ");
   const stampAnimation = showStamp && elements.some((element) => element.type === "seal")
     ? `.stamp-impression{transform-origin:66px 66px;animation:stamp-punch .58s cubic-bezier(.16,.8,.25,1) 3.45s 1 both}@keyframes stamp-punch{0%{opacity:0;transform:translateY(-15px) scale(1.26)}38%{opacity:.9;transform:translateY(2px) scale(.96)}62%{opacity:1;transform:translateY(-1px) scale(1.015)}100%{opacity:1;transform:translateY(0) scale(1)}}`

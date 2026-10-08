@@ -30,10 +30,10 @@ export async function renderReceiptPdf(options: {
   const height = layout.height * receiptPdfWidth / layout.width;
   const page = document.addPage([receiptPdfWidth, height]);
   const ink = rgb(35 / 255, 35 / 255, 33 / 255);
-  document.setTitle(`Commit receipt - ${options.data.snapshot.username} - ${options.data.snapshot.year}`);
+  document.setTitle(`Git receipt - ${options.data.snapshot.username} - ${options.data.snapshot.year}`);
   document.setSubject("GitHub contribution receipt");
-  document.setCreator("Commit Printer");
-  document.setProducer("Commit Printer");
+  document.setCreator("Git Receipts");
+  document.setProducer("Git Receipts");
 
   const annotations = [];
   for (const element of layout.elements) {

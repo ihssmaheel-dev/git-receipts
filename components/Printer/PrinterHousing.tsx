@@ -128,8 +128,8 @@ export function PrinterHousingFront({ idPrefix, stage, egg, available }: Housing
 <path d="M1229,600 V882" stroke="#fff" strokeOpacity=".6" strokeWidth="1.5"/>
 
 {/* labels */}
-<text fontFamily="var(--font-sans)" x="400" y="705" fontSize="46" fontWeight="600" fill="#1a1a1a" textLength="309" lengthAdjust="spacingAndGlyphs">commit printer</text>
-<text fontFamily="var(--font-mono)" x="403" y="746" fontSize="20" fill="#767471" textLength="193" lengthAdjust="spacing">CP-02 / 80 MM</text>
+<text fontFamily="var(--font-sans)" x="400" y="705" fontSize="46" fontWeight="600" fill="#1a1a1a" textLength="309" lengthAdjust="spacingAndGlyphs">git receipts</text>
+<text fontFamily="var(--font-mono)" x="403" y="746" fontSize="20" fill="#767471" textLength="193" lengthAdjust="spacing">GR-02 / 80 MM</text>
 <path d="M401,808.5 H1163" stroke="#b9b3ad" strokeWidth="1.5"/>
 <path d="M401,810 H1163" stroke="#fff" strokeOpacity=".7" strokeWidth="1"/>
 <text fontFamily="var(--font-mono)" x="402" y="843" fontSize="17.5" fill="#6e6c69" textLength="392" lengthAdjust="spacing">{egg ? "COFFEE BREAK - NO INK REQUIRED" : "DIRECT THERMAL - NO INK REQUIRED"}</text>

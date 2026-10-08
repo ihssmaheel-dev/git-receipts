@@ -8,7 +8,7 @@ process.env.SQLITE_URL = "file::memory:";
 function requestWithIp(ip: string | null): Request {
   const headers = new Headers();
   if (ip !== null) headers.set("x-forwarded-for", ip);
-  return new Request("https://commit-printer.example/", { headers });
+  return new Request("https://git-receipts.example/", { headers });
 }
 
 test("client addresses hash privately with first-proxy-wins semantics", () => {

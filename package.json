@@ -1,5 +1,5 @@
 {
-  "name": "commit-printer",
+  "name": "git-receipts",
   "version": "1.0.0",
   "private": true,
   "scripts": {

@@ -1,4 +1,4 @@
-# Commit Printer
+# Git Receipts
 
 A Next.js app that turns **any public GitHub profile** into a thermal-style activity receipt. Enter a username, `@handle`, or `https://github.com/handle`, choose a year, and print.
 
@@ -83,7 +83,7 @@ Omit `user` for the sample receipt. SVGs are self-contained, have no JavaScript 
 README embed (replace the origin with your deployed domain):
 
 ```markdown
-[![Commit receipt](https://yourdomain.dev/api/receipt.svg?user=your-handle&year=2026)](https://yourdomain.dev/?user=your-handle&year=2026)
+[![Git receipt](https://yourdomain.dev/api/receipt.svg?user=your-handle&year=2026)](https://yourdomain.dev/?user=your-handle&year=2026)
 ```
 
 GitHub's image proxy can delay updates even after the server refreshes. The website also supplies an embed snippet for the selected receipt.

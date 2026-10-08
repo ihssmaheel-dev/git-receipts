@@ -10,7 +10,7 @@ const data: ReceiptData = {
   snapshot: { username: "octocat", displayName: "The Octocat", avatarUrl: null, year: 2025, source: "live", sourceMessage: "GitHub", available: true, rateLimited: false, fetchedAt: "2025-12-31T00:00:00Z", periodStart: "2025-01-01", periodEnd: "2025-12-31", days: [], repositories: [], totalContributions: 1234, totalCommits: 1234, pullRequests: 0, reviews: 0, issues: 0, restrictedContributions: 0 },
   stats: { totalContributions: 1234, totalCommits: 1234, pullRequests: 0, reviews: 0, issues: 0, otherContributions: 0, activeDays: 200, currentStreak: 0, longestStreak: 24, busiestDay: null, calendarComplete: true, bestMonth: null, longestBreak: null, topRepos: [] },
   lines: [
-    { type: "heading", text: "COMMIT PRINTER", detail: "A YEAR OF SHOWING UP" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "A YEAR OF SHOWING UP" },
     { type: "text", text: "@octocat", align: "center" },
     { type: "pair", label: "YEAR", value: "2025" },
     { type: "divider" },
@@ -23,7 +23,7 @@ const data: ReceiptData = {
 };
 
 test("PDF uses one 80mm page with automatic receipt height, vector text and vector QR modules", async () => {
-  const permalink = receiptPermalink("https://commit-printer.example", "octocat", 2025);
+  const permalink = receiptPermalink("https://git-receipts.example", "octocat", 2025);
   const qr = createQrPath(permalink);
   const bytes = await renderReceiptPdf({ data, qr, permalink });
   assert.equal(new TextDecoder().decode(bytes.slice(0, 4)), "%PDF");
@@ -42,7 +42,7 @@ test("PDF uses one 80mm page with automatic receipt height, vector text and vect
 });
 
 test("PDF footer link points to the exact selected receipt and annotation stays inside paper", async () => {
-  const permalink = receiptPermalink("https://commit-printer.example", "octocat", 2025);
+  const permalink = receiptPermalink("https://git-receipts.example", "octocat", 2025);
   const document = await PDFDocument.load(await renderReceiptPdf({ data, qr: createQrPath(permalink), permalink }));
   const page = document.getPage(0);
   const annotations = page.node.Annots()!;

@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <>
       <header className="site-header">
-        <a className="wordmark" href="/" aria-label="Commit Printer home"><span className="logo-icon"><PrinterIcon size={21} /></span>Commit Printer<span className="version-tag">CP–02</span></a>
+        <a className="wordmark" href="/" aria-label="Git Receipts home"><span className="logo-icon"><PrinterIcon size={21} /></span>Git Receipts<span className="version-tag">GR–02</span></a>
         <nav aria-label="Main navigation"><a href="/#about">About the data <ArrowIcon size={13} /></a><a className="github-nav" href="https://github.com" target="_blank" rel="noreferrer"><GithubIcon size={17} />GitHub<ArrowIcon diagonal size={12} /></a></nav>
       </header>
     <main className="loading-shell" aria-busy="true">

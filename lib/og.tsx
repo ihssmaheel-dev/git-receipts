@@ -61,8 +61,8 @@ export function receiptOgImage(data: ReceiptData, options: { showStamp?: boolean
       <div style={{ display: "flex", width: "100%", height: "100%", background: "#e8edf0", color: "#26333c", padding: "42px 75px", alignItems: "center", justifyContent: "space-between", fontFamily: "Geist" }}>
         <div style={{ display: "flex", flexDirection: "column", width: 540, height: "100%", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", fontSize: 19, fontWeight: 600, letterSpacing: -0.7 }}>
-            <span style={{ display: "flex", width: 28, height: 26, marginRight: 12, alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, letterSpacing: -0.7, color: "#ffffff", background: "#45657c" }}>CP</span>
-            commit printer
+            <span style={{ display: "flex", width: 28, height: 26, marginRight: 12, alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, letterSpacing: -0.7, color: "#ffffff", background: "#45657c" }}>GR</span>
+            git receipts
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 12, fontWeight: 500, letterSpacing: 2.5, color: "#687985", marginBottom: 19 }}>A RECORD OF SHOWING UP</div>
