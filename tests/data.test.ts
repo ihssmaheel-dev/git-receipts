@@ -146,7 +146,7 @@ test("one achievement seal selects the highest reached threshold and bill number
   ]);
   assert.equal(receiptNumber(awarded.data, awarded.stats), "2025-1000-200");
   assert.deepEqual(awarded.lines.slice(0, 3), [
-    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY RECEIPT" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY SLIP" },
     { type: "pair", label: "BILL NO.", value: "2025-1000-200" },
     { type: "pair", label: "ACCOUNT", value: "@octocat" },
   ]);
@@ -206,6 +206,14 @@ test("unavailable snapshots do not produce numerical receipts", () => {
   const lines = buildReceiptLines(data, calculateStats(data));
   assert.ok(lines.some((line) => line.type === "text" && line.text === "DATA UNAVAILABLE"));
   assert.equal(lines.filter((line) => line.type === "item" || line.type === "total").length, 0);
+});
+
+test("every slip carries a small printed-on timestamp from the real fetch", () => {
+  for (const available of [true, false]) {
+    const lines = buildReceiptLines(snapshot({ available }), calculateStats(snapshot({ available })));
+    const printed = lines.find((line) => line.type === "footer" && line.text.startsWith("PRINTED ON "));
+    assert.match(printed?.type === "footer" ? printed.text : "", /^PRINTED ON [A-Z]{3} \d{2}, \d{4} · \d{2}:\d{2} UTC$/);
+  }
 });
 
 test("exactly 1337 contributions earn a LEET YEAR footer wink", () => {

@@ -29,13 +29,19 @@ function salt(): string {
   return DEV_SALT;
 }
 
-/** First public address in X-Forwarded-For; "direct" when absent or malformed. */
+/** Closest valid address in X-Forwarded-For; "direct" when absent or malformed.
+ * The rightmost entry is appended by the closest trusted hop (our host);
+ * entries to its left are sender-controlled and must never grant buckets. */
 export function hashIp(forwardedFor: string | null): string {
-  const candidate = forwardedFor?.split(",")[0]?.trim() ?? "";
-  // Dotted quads and colon-hex forms (plus mixed mapped forms) bucket per
-  // sender; anything else shares the "direct" bucket rather than spoofing one.
-  const valid = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(candidate) || /^[0-9a-fA-F:.]+$/.test(candidate);
-  const ip = valid ? candidate : "direct";
+  const entries = (forwardedFor ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+  let candidate = "";
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(entries[index]) || /^[0-9a-fA-F:.]+$/.test(entries[index])) {
+      candidate = entries[index];
+      break;
+    }
+  }
+  const ip = candidate || "direct";
   return createHash("sha256").update(`${salt()}:${ip}`).digest("hex");
 }
 

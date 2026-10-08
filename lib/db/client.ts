@@ -42,10 +42,14 @@ let client: Client | null | undefined;
 let schemaReady: Promise<void> | null = null;
 let warned = false;
 
-function warnOnce(message: string, error: unknown) {
+function warnOnce(message: string, error?: unknown) {
+  // Redact embedded credentials before anything reaches the log stream.
+  const detail = error instanceof Error
+    ? error.message.replace(/:\/\/[^/\s@]+@/g, "://***@")
+    : error;
   if (warned) return;
   warned = true;
-  console.warn(`[db] ${message}`, error instanceof Error ? error.message : error);
+  console.warn(`[db] ${message}`, detail);
 }
 
 export function getDbClient(): Client | null {

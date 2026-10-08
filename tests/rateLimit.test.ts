@@ -11,11 +11,11 @@ function requestWithIp(ip: string | null): Request {
   return new Request("https://git-receipts.example/", { headers });
 }
 
-test("client addresses hash privately with first-proxy-wins semantics", () => {
+test("client addresses hash privately with last-proxy-wins semantics", () => {
   const direct = hashIp(null);
   assert.equal(hashIp(""), direct);
   assert.equal(hashIp("not an ip"), direct);
-  assert.equal(hashIp("203.0.113.7"), hashIp("203.0.113.7, 70.41.3.18"));
+  assert.equal(hashIp("203.0.113.7, 70.41.3.18"), hashIp("70.41.3.18"));
   assert.notEqual(hashIp("203.0.113.7"), hashIp("203.0.113.8"));
   assert.notEqual(hashIp("::1"), direct);
   assert.equal(clientIpHash(requestWithIp(null)), direct);

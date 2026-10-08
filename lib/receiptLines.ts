@@ -18,6 +18,18 @@ function shortDate(date: string): string {
   }).toUpperCase();
 }
 
+function printedOn(iso: string): string {
+  const at = new Date(iso);
+  if (!Number.isFinite(at.getTime())) return "PRINTED ON DATE UNKNOWN";
+  const date = at.toLocaleDateString("en-US", {
+    month: "short", day: "2-digit", year: "numeric", timeZone: "UTC",
+  }).toUpperCase();
+  const time = at.toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC",
+  });
+  return `PRINTED ON ${date} · ${time} UTC`;
+}
+
 /** The sole copy and number source for HTML, README SVG, and social images. */
 export function buildReceiptLines(
   snapshot: ContributionSnapshot,
@@ -25,13 +37,14 @@ export function buildReceiptLines(
 ): ReceiptLine[] {
   const number = receiptNumber(snapshot, stats);
   const lines: ReceiptLine[] = [
-    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY RECEIPT" },
+    { type: "heading", text: "GIT RECEIPTS", detail: "GITHUB ACTIVITY SLIP" },
   ];
   if (number) lines.push({ type: "pair", label: "BILL NO.", value: number });
   lines.push(
     { type: "pair", label: "ACCOUNT", value: `@${snapshot.username}` },
     { type: "pair", label: "YEAR", value: String(snapshot.year) },
     { type: "pair", label: "PERIOD", value: `${shortDate(snapshot.periodStart)} – ${shortDate(snapshot.periodEnd)}` },
+    { type: "footer", text: printedOn(snapshot.fetchedAt) },
     { type: "divider" },
   );
 
