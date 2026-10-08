@@ -1,0 +1,4 @@
+"use client";
+export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  return <main style={{ minHeight: "75dvh", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 18 }}><p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#738b9c" }}>PRINT STATION / UNAVAILABLE</p><h1 style={{ fontSize: 32, letterSpacing: -1 }}>The printer couldn’t load.</h1><p style={{ fontSize: 13, color: "#73818a" }}>Try again, or return to the sample receipt.</p><button onClick={reset} style={{ border: "1px solid #3b5b72", background: "#45657c", color: "#f6f8fa", padding: "12px 24px", borderRadius: 4, cursor: "pointer" }}>Try again</button><a href="/" style={{ fontSize: 12, color: "#57768c" }}>Open the sample receipt</a></main>;
+}

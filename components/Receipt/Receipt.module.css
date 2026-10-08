@@ -1,0 +1,277 @@
+.receipt {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 25px 24px 28px;
+  color: var(--receipt-ink, #232321);
+  background-color: var(--receipt-paper, #f9f8f3);
+  background-image: linear-gradient(90deg, #ffffff22, transparent 4%, transparent 96%, #1c1b1704);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 19px;
+  letter-spacing: 0;
+  text-align: left;
+  box-shadow: inset 1px 0 0 #292c2d08, inset -1px 0 0 #292c2d08;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), 98% 100%, 96% calc(100% - 4px), 94% 100%, 92% calc(100% - 4px), 90% 100%, 88% calc(100% - 4px), 86% 100%, 84% calc(100% - 4px), 82% 100%, 80% calc(100% - 4px), 78% 100%, 76% calc(100% - 4px), 74% 100%, 72% calc(100% - 4px), 70% 100%, 68% calc(100% - 4px), 66% 100%, 64% calc(100% - 4px), 62% 100%, 60% calc(100% - 4px), 58% 100%, 56% calc(100% - 4px), 54% 100%, 52% calc(100% - 4px), 50% 100%, 48% calc(100% - 4px), 46% 100%, 44% calc(100% - 4px), 42% 100%, 40% calc(100% - 4px), 38% 100%, 36% calc(100% - 4px), 34% 100%, 32% calc(100% - 4px), 30% 100%, 28% calc(100% - 4px), 26% 100%, 24% calc(100% - 4px), 22% 100%, 20% calc(100% - 4px), 18% 100%, 16% calc(100% - 4px), 14% 100%, 12% calc(100% - 4px), 10% 100%, 8% calc(100% - 4px), 6% 100%, 4% calc(100% - 4px), 2% 100%, 0 calc(100% - 4px));
+}
+
+.visual {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.line {
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0 13px;
+  text-align: center;
+}
+
+.heading strong {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.35px;
+}
+
+.heading > span:last-child {
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: 0.35px;
+}
+
+.text,
+.center,
+.footer {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.center,
+.footer {
+  text-align: center;
+}
+
+.center {
+  padding-block: 3px;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.sealImpression {
+  position: absolute;
+  z-index: 0;
+  width: var(--seal-diameter);
+  height: var(--seal-diameter);
+  pointer-events: none;
+}
+
+.sealImpression[data-animate=true][data-punched=false] { opacity: 0; }
+.sealImpression[data-animate=true][data-punched=true] {
+  animation: stampPunch 560ms cubic-bezier(.2,.7,.25,1) 100ms both;
+  transform-origin: center;
+}
+
+@keyframes stampPunch {
+  0% { opacity: 0; transform: translate(-6px,-18px) scale(1.65) rotate(-5deg); }
+  48% { opacity: 0.85; transform: translate(0,2px) scale(.94); }
+  68% { opacity: 1; transform: translate(0,-1px) scale(1.035); }
+  100% { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sealImpression[data-animate=true][data-punched] { opacity: 1; animation: none; transform: none; }
+}
+
+.sealImpression svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.handle {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.25px;
+}
+
+.divider {
+  margin: 9px 0;
+  border-top: 1px dashed currentColor;
+  opacity: 0.65;
+}
+
+.tableHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 3px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.item,
+.pair {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 19px;
+}
+
+.itemName,
+.pair > :first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.value {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 54%;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.item .value {
+  font-weight: 400;
+}
+
+.pair .value {
+  max-width: 74%;
+}
+
+.stackedPair {
+  display: block;
+}
+
+.stackedPair > span {
+  display: block;
+}
+
+.stackedPair .value {
+  max-width: 100%;
+}
+
+.total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3px 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.total strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.total > :last-child {
+  margin-left: auto;
+  font-size: var(--total-size, 22px);
+  line-height: 28px;
+  letter-spacing: -0.35px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.spacer {
+  height: 10px;
+}
+
+.footer {
+  padding-top: 5px;
+  font-size: 9px;
+  line-height: 15px;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+
+.qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 15px;
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 13px;
+  text-align: center;
+}
+
+.qr svg {
+  display: block;
+  width: 104px;
+  height: 104px;
+  flex: none;
+  background: var(--receipt-paper, #f9f8f3);
+}
+
+.barcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 15px;
+  font-size: 9px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.barcode svg {
+  display: block;
+  width: min(280px, 100%);
+  height: 32px;
+  background: var(--receipt-paper, #f9f8f3);
+}
+
+.compact {
+  padding: 25px 24px 28px;
+  font-size: 12px;
+}
+
+.compact .heading strong {
+  font-size: 22px;
+}
+
+.compact .total {
+  font-size: 12px;
+}
+
+@media print {
+  .receipt {
+    color: #111;
+    background: #fff;
+    box-shadow: none;
+  }
+  .sealImpression { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

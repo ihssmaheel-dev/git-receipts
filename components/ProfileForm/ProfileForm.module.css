@@ -1,0 +1,25 @@
+.form { margin: 0; }
+.label { display: block; margin-bottom: 8px; color: #46535e; font-family: var(--font-sans); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.inputRow { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 13px; border: 1px solid #c6d0d7; border-radius: 6px; background: #fafbfc; box-shadow: 0 1px 2px #22313b04; transition: border-color 160ms, box-shadow 160ms; }
+.inputRow > svg { flex: none; color: #63727e; }
+.inputRow:focus-within { border-color: #607f95; box-shadow: 0 0 0 3px #45657c12; }
+.inputRow[data-invalid] { border-color: #a97c6e; }
+.inputRow[data-invalid]:focus-within { box-shadow: 0 0 0 3px #a97c6e12; }
+.inputRow[data-pending] { background: #f0f4f6; border-color: #d0d9df; }
+.inputRow input { width: 100%; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; outline: 0; color: #293239; background: transparent; font-family: var(--font-sans); font-size: 14px; line-height: 1.5; }
+.inputRow input::placeholder { color: #667681; }
+.inputRow input:focus-visible { outline: none; }
+.help { margin: 9px 0 0; color: #697682; font-size: 12px; line-height: 1.6; }
+.formRow { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: end; gap: 12px; margin-top: 20px; }
+.yearField { min-width: 0; }
+.loadButton { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; height: 48px; padding: 0 14px; border: 1px solid #3b5b72; border-radius: 6px; color: #f7f9fa; background: #45657c; box-shadow: inset 0 1px 0 #ffffff12, 0 1px 2px #22313b0a; font-family: var(--font-sans); font-size: 14px; font-weight: 500; line-height: 1.4; white-space: nowrap; transition: background 160ms, box-shadow 160ms; }
+.loadButton > svg { flex: none; }
+.loadButton:hover:not(:disabled) { background: #3c5b72; box-shadow: inset 0 1px 0 #ffffff12, 0 2px 4px #22313b12; }
+.loadButton:active:not(:disabled) { background: #355368; }
+.loadButton:disabled { cursor: wait; background: #5a768b; border-color: #506d82; }
+.error { margin: 14px 0 0; padding: 11px 12px; border: 1px solid #d6c7bf; border-radius: 6px; color: #79594b; background: #f2eae5; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.spinner { animation: spin 900ms linear infinite; }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 560px) { .inputRow input { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .inputRow, .loadButton { transition: none; } .spinner { animation: none; } }
