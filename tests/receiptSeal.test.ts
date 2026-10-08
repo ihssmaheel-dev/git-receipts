@@ -32,7 +32,7 @@ test("unknown, incomplete, invalid, and unearned activity cannot produce an achi
   const earned = { ...emptyStats, totalContributions: 20000, longestStreak: 365, activeDays: 365 };
   assert.equal(chooseReceiptAchievement({ ...snapshot, available: false }, earned), null);
   assert.equal(chooseReceiptAchievement(snapshot, { ...earned, calendarComplete: false }), null);
-  assert.equal(chooseReceiptAchievement(snapshot, emptyStats), null);
+  assert.equal(chooseReceiptAchievement(snapshot, emptyStats)?.text, "0 CONTRIBUTIONS ★ TOUCH GRASS");
   assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, longestStreak: 6, totalContributions: 999, activeDays: 99 }), null);
   assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, totalContributions: Infinity, reviews: Number.NaN }), null);
 });
@@ -55,7 +55,7 @@ test("new achievements use reached thresholds and never infer an unavailable bre
     [{ ...emptyStats, totalContributions: 5000 }, "5000+ ★ FIVE-K YEAR"],
     [{ ...emptyStats, totalContributions: 2000 }, "2000+ ★ TWO-K YEAR"],
   ] as const) assert.equal(chooseReceiptAchievement(snapshot, stats)?.text, expected);
-  assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, reviews: 99, pullRequests: 99, totalCommits: 499, issues: 24 }), null);
+  assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, totalContributions: 499, reviews: 99, pullRequests: 99, totalCommits: 499, issues: 24 }), null);
   assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, totalContributions: 500 }), null);
 });
 

@@ -138,7 +138,8 @@ const achievements = [
   { text: "ACTIVE 100+ DAYS ★ HUNDRED-DAY CLUB", title: ["HUNDRED-DAY", "CLUB"], detail: "100+ ACTIVE DAYS", metric: "activeDays", threshold: 100 },
   { text: "14+ DAY STREAK ★ FORTNIGHT STREAK", title: ["FORTNIGHT", "STREAK"], detail: "14+ DAY STREAK", metric: "longestStreak", threshold: 14 },
   { text: "7+ DAY STREAK ★ WEEK IN MOTION", title: ["WEEK IN", "MOTION"], detail: "7+ DAY STREAK", metric: "longestStreak", threshold: 7 },
-] as const satisfies readonly { text: string; title: readonly string[]; detail: string; metric: AchievementMetric; threshold: number }[];
+  { text: "0 CONTRIBUTIONS ★ TOUCH GRASS", title: ["TOUCH", "GRASS"], detail: "0 CONTRIBUTIONS", metric: "totalContributions", threshold: 0, exactZero: true },
+] as const satisfies readonly { text: string; title: readonly string[]; detail: string; metric: AchievementMetric; threshold: number; exactZero?: boolean }[];
 
 export type ReceiptAchievement = (typeof achievements)[number];
 
@@ -147,6 +148,8 @@ export function chooseReceiptAchievement(snapshot: ContributionSnapshot, stats: 
   if (!snapshot.available || !stats.calendarComplete) return null;
   return achievements.find((achievement) => {
     const count = stats[achievement.metric];
+    // A zero threshold means an exactly-zero year, not "everything qualifies".
+    if ("exactZero" in achievement && achievement.exactZero) return count === 0;
     return count !== null && Number.isSafeInteger(count) && count >= achievement.threshold;
   }) ?? null;
 }

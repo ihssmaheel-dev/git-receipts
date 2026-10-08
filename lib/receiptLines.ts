@@ -111,6 +111,9 @@ export function buildReceiptLines(
     lines.push({ type: "footer", text: "ACTIVITY BREAKDOWN UNAVAILABLE" });
   }
   if (number) lines.push({ type: "footer", text: `No. ${number}` });
+  if (snapshot.available && stats.totalContributions === 1337) {
+    lines.push({ type: "footer", text: "LEET YEAR · 1337 CONTRIBUTIONS" });
+  }
   return lines;
 }
 

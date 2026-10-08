@@ -92,6 +92,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
               </dl>
               <p className="source-label">{sourceLabel}</p>
               {demo && data.snapshot.available && <p className="sample-note">This receipt uses sample activity. Load a profile to print your own.</p>}
+              {year === 2008 && data.snapshot.available && <p className="sample-note">Vintage edition — GitHub&apos;s founding year.</p>}
             </div>
           </aside>
           <div className="printer-column">

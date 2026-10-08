@@ -157,6 +157,7 @@ test("one achievement seal selects the highest reached threshold and bill number
     [Array.from({ length: 266 }, (_, index) => index % 4 === 3 ? 0 : 5), "ACTIVE 200+ DAYS ★ 200-DAY CLUB"],
     [Array.from({ length: 265 }, (_, index) => index % 4 === 3 ? 0 : 5), "ACTIVE 150+ DAYS ★ 150-DAY CLUB"],
     [[1000], "1000+ ★ FOUR-FIGURE YEAR"],
+    [[0], "0 CONTRIBUTIONS ★ TOUCH GRASS"],
   ] as [number[], string][]) {
     const lines = make(counts).lines;
     assert.deepEqual(lines.filter((line) => line.type === "text" && line.text.includes("★")), [
@@ -205,6 +206,13 @@ test("unavailable snapshots do not produce numerical receipts", () => {
   const lines = buildReceiptLines(data, calculateStats(data));
   assert.ok(lines.some((line) => line.type === "text" && line.text === "DATA UNAVAILABLE"));
   assert.equal(lines.filter((line) => line.type === "item" || line.type === "total").length, 0);
+});
+
+test("exactly 1337 contributions earn a LEET YEAR footer wink", () => {
+  const leet = buildReceiptLines(snapshot({ totalContributions: 1337 }), calculateStats(snapshot({ totalContributions: 1337 })));
+  assert.ok(leet.some((line) => line.type === "footer" && line.text === "LEET YEAR · 1337 CONTRIBUTIONS"));
+  const ordinary = buildReceiptLines(snapshot({ totalContributions: 1336 }), calculateStats(snapshot({ totalContributions: 1336 })));
+  assert.ok(!ordinary.some((line) => line.type === "footer" && line.text.includes("LEET")));
 });
 
 test("quota exhaustion renders OUT OF PAPER without fabricating totals", () => {
