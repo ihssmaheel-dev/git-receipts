@@ -10,6 +10,7 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@radix-ui/react-dialog": "^1.2.0",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.3.8",

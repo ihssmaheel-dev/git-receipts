@@ -6,3 +6,8 @@ out/
 *.tsbuildinfo
 *.log
 artifacts/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/cache.db*

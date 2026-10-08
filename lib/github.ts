@@ -2,6 +2,7 @@ import "server-only";
 
 import fallback from "../data/fallback.json";
 import { createSnapshotCache } from "./githubCache";
+import { durableSnapshotKey, getStoredSnapshot, putStoredSnapshot } from "./db/snapshots";
 import { contributionPeriod, normalizeYear, parseContributionCalendar, parseGitHubUsername } from "./githubInput";
 import { buildReceiptLines } from "./receiptLines";
 import { calculateStats, normalizeDays } from "./stats";
@@ -212,16 +213,24 @@ async function loadSnapshot(username: string, selectedYear: number): Promise<Con
   const token = process.env.GH_PAT?.trim();
   if (token) {
     try {
-      return rememberSnapshot(await fetchGraphQLSnapshot(username, selectedYear, token));
+      const snapshot = rememberSnapshot(await fetchGraphQLSnapshot(username, selectedYear, token));
+      void putStoredSnapshot(durableSnapshotKey(username, selectedYear), snapshot);
+      return snapshot;
     } catch {
       // A token can expire or lack access; the public calendar remains available.
     }
   }
   try {
-    return rememberSnapshot(await fetchPublicSnapshot(username, selectedYear));
+    const snapshot = rememberSnapshot(await fetchPublicSnapshot(username, selectedYear));
+    void putStoredSnapshot(durableSnapshotKey(username, selectedYear), snapshot);
+    return snapshot;
   } catch {
     const saved = lastKnownSnapshots.get(`${username.toLowerCase()}:${selectedYear}`);
     if (saved) return { ...saved, source: "fallback", sourceMessage: "GitHub is unavailable. Showing the last successful snapshot for this profile and year." };
+    // Cross-instance recovery: local .db file locally, Turso Cloud in production.
+    // Fail-closed: only exact profile/year snapshots are reused, never guessed zeros.
+    const stored = await getStoredSnapshot(durableSnapshotKey(username, selectedYear));
+    if (stored) return { ...stored, source: "fallback", sourceMessage: "GitHub is unavailable. Showing the last successful snapshot for this profile and year." };
     return unavailableSnapshot(username, selectedYear);
   }
 }
