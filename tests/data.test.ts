@@ -153,9 +153,9 @@ test("one achievement seal selects the highest reached threshold and bill number
   assert.ok(awarded.lines.some((line) => line.type === "footer" && line.text === "No. 2025-1000-200"));
   for (const [counts, text] of [
     [Array.from({ length: 30 }, () => 1), "30+ DAY STREAK ★ STREAK KEEPER"],
-    [Array.from({ length: 29 }, () => 1), "7+ DAY STREAK ★ WEEK IN MOTION"],
+    [Array.from({ length: 29 }, () => 1), "14+ DAY STREAK ★ FORTNIGHT STREAK"],
     [Array.from({ length: 266 }, (_, index) => index % 4 === 3 ? 0 : 5), "ACTIVE 200+ DAYS ★ 200-DAY CLUB"],
-    [Array.from({ length: 265 }, (_, index) => index % 4 === 3 ? 0 : 5), "ACTIVE 100+ DAYS ★ HUNDRED-DAY CLUB"],
+    [Array.from({ length: 265 }, (_, index) => index % 4 === 3 ? 0 : 5), "ACTIVE 150+ DAYS ★ 150-DAY CLUB"],
     [[1000], "1000+ ★ FOUR-FIGURE YEAR"],
   ] as [number[], string][]) {
     const lines = make(counts).lines;

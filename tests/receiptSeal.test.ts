@@ -39,13 +39,23 @@ test("unknown, incomplete, invalid, and unearned activity cannot produce an achi
 
 test("new achievements use reached thresholds and never infer an unavailable breakdown", () => {
   for (const [stats, expected] of [
+    [{ ...emptyStats, reviews: 200, totalContributions: 200 }, "200+ CODE REVIEWS ★ REVIEW LEGEND"],
     [{ ...emptyStats, reviews: 100, totalContributions: 100 }, "100+ CODE REVIEWS ★ REVIEW CHAMPION"],
+    [{ ...emptyStats, pullRequests: 200, totalContributions: 200 }, "200+ PULL REQUESTS ★ PR LEGEND"],
     [{ ...emptyStats, pullRequests: 100, totalContributions: 100 }, "100+ PULL REQUESTS ★ PR BUILDER"],
+    [{ ...emptyStats, totalCommits: 1000, totalContributions: 1000 }, "1000+ COMMITS ★ COMMIT MACHINE"],
     [{ ...emptyStats, totalCommits: 500, totalContributions: 500 }, "500+ COMMITS ★ COMMIT CRAFTER"],
-    [{ ...emptyStats, activeDays: 100, totalContributions: 100 }, "ACTIVE 100+ DAYS ★ HUNDRED-DAY CLUB"],
-    [{ ...emptyStats, longestStreak: 7, totalContributions: 7 }, "7+ DAY STREAK ★ WEEK IN MOTION"],
+    [{ ...emptyStats, issues: 100, totalContributions: 100 }, "100+ ISSUES ★ BUG HUNTER"],
+    [{ ...emptyStats, issues: 50, totalContributions: 50 }, "50+ ISSUES ★ BUG SLEUTH"],
+    [{ ...emptyStats, issues: 25, totalContributions: 25 }, "25+ ISSUES ★ TICKET TAMER"],
+    [{ ...emptyStats, longestStreak: 50, totalContributions: 50 }, "50+ DAY STREAK ★ HALF-CENTURY STREAK"],
+    [{ ...emptyStats, longestStreak: 14, totalContributions: 14 }, "14+ DAY STREAK ★ FORTNIGHT STREAK"],
+    [{ ...emptyStats, activeDays: 250, totalContributions: 250 }, "ACTIVE 250+ DAYS ★ 250-DAY CLUB"],
+    [{ ...emptyStats, activeDays: 150, totalContributions: 150 }, "ACTIVE 150+ DAYS ★ 150-DAY CLUB"],
+    [{ ...emptyStats, totalContributions: 5000 }, "5000+ ★ FIVE-K YEAR"],
+    [{ ...emptyStats, totalContributions: 2000 }, "2000+ ★ TWO-K YEAR"],
   ] as const) assert.equal(chooseReceiptAchievement(snapshot, stats)?.text, expected);
-  assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, reviews: 99, pullRequests: 99, totalCommits: 499 }), null);
+  assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, reviews: 99, pullRequests: 99, totalCommits: 499, issues: 24 }), null);
   assert.equal(chooseReceiptAchievement(snapshot, { ...emptyStats, totalContributions: 500 }), null);
 });
 

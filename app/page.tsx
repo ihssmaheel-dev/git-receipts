@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { ArrowIcon, GithubIcon, PrinterIcon } from "@/components/Icons";
+import { ArrowIcon, GithubIcon, HeartIcon, PrinterIcon } from "@/components/Icons";
 import { Printer } from "@/components/Printer/Printer";
 import { getReceiptData, normalizeYear, parseGitHubUsername, slowDownReceiptData } from "@/lib/github";
 import { getPrintCount } from "@/lib/prints";
@@ -71,7 +71,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
       <a className="skip-link" href="#profile">Skip to profile input</a>
       <header className="site-header">
         <Link className="wordmark" href="/" aria-label="Git Receipts home"><span className="logo-icon"><PrinterIcon size={21} /></span>Git Receipts<span className="version-tag">GR–02</span></Link>
-        <nav aria-label="Main navigation"><a href="#about">About the data <ArrowIcon size={13} /></a><a className="github-nav" href="https://github.com" target="_blank" rel="noreferrer"><GithubIcon size={17} />GitHub<ArrowIcon diagonal size={12} /></a></nav>
+        <nav aria-label="Main navigation"><a href="#about">About the data <ArrowIcon size={13} /></a><a className="github-nav" href={githubUrl} target="_blank" rel="noreferrer"><GithubIcon size={17} />GitHub<ArrowIcon diagonal size={12} /></a></nav>
       </header>
       <ReceiptPreferencesProvider key={`${data.snapshot.username}-${data.snapshot.year}`} initialShowStamp={initialShowStamp}>
       <main>
@@ -109,7 +109,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
         <ReceiptShare available={data.snapshot.available} demo={demo} username={data.snapshot.username} year={data.snapshot.year} siteUrl={siteConfig.siteUrl} permalink={permalink} />
       </main>
       </ReceiptPreferencesProvider>
-      <footer className="site-footer"><Link className="footer-brand" href="/"><PrinterIcon size={15} />Git Receipts</Link><p>Made for your GitHub history.</p><a href="#profile">Load another profile <ArrowIcon size={13} /></a></footer>
+      <footer className="site-footer"><Link className="footer-brand" href="/"><PrinterIcon size={15} />Git Receipts</Link><p className="footer-love">Made for your GitHub history by <a href="https://github.com/ihssmaheel-dev" target="_blank" rel="noreferrer">ihssmaheel-dev</a> <HeartIcon /></p><a href="#profile">Load another profile <ArrowIcon size={13} /></a></footer>
     </>
   );
 }

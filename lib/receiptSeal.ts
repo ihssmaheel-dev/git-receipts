@@ -110,21 +110,33 @@ export function getReceiptSealOverlay(seal: ReceiptSeal, bounds: {
   return best;
 }
 
-type AchievementMetric = "longestStreak" | "activeDays" | "totalContributions" | "reviews" | "pullRequests" | "totalCommits";
+type AchievementMetric = "longestStreak" | "activeDays" | "totalContributions" | "reviews" | "pullRequests" | "totalCommits" | "issues";
 
 /** Ordered by priority: rare consistency milestones, then annual volume and smaller earned milestones. */
 const achievements = [
   { text: "365+ DAY STREAK ★ YEAR IN MOTION", title: ["YEAR IN", "MOTION"], detail: "365+ DAY STREAK", metric: "longestStreak", threshold: 365 },
   { text: "ACTIVE 300+ DAYS ★ YEAR REGULAR", title: ["YEAR", "REGULAR"], detail: "300+ ACTIVE DAYS", metric: "activeDays", threshold: 300 },
   { text: "100+ DAY STREAK ★ CENTURY STREAK", title: ["CENTURY", "STREAK"], detail: "100+ DAY STREAK", metric: "longestStreak", threshold: 100 },
+  { text: "ACTIVE 250+ DAYS ★ 250-DAY CLUB", title: ["250-DAY", "CLUB"], detail: "250+ ACTIVE DAYS", metric: "activeDays", threshold: 250 },
+  { text: "50+ DAY STREAK ★ HALF-CENTURY STREAK", title: ["HALF-CENTURY", "STREAK"], detail: "50+ DAY STREAK", metric: "longestStreak", threshold: 50 },
   { text: "10000+ ★ TEN-K YEAR", title: ["TEN-K", "YEAR"], detail: "10000+ THIS YEAR", metric: "totalContributions", threshold: 10000 },
+  { text: "5000+ ★ FIVE-K YEAR", title: ["FIVE-K", "YEAR"], detail: "5000+ THIS YEAR", metric: "totalContributions", threshold: 5000 },
+  { text: "2000+ ★ TWO-K YEAR", title: ["TWO-K", "YEAR"], detail: "2000+ THIS YEAR", metric: "totalContributions", threshold: 2000 },
   { text: "30+ DAY STREAK ★ STREAK KEEPER", title: ["STREAK", "KEEPER"], detail: "30+ DAY STREAK", metric: "longestStreak", threshold: 30 },
   { text: "ACTIVE 200+ DAYS ★ 200-DAY CLUB", title: ["200-DAY", "CLUB"], detail: "200+ ACTIVE DAYS", metric: "activeDays", threshold: 200 },
+  { text: "ACTIVE 150+ DAYS ★ 150-DAY CLUB", title: ["150-DAY", "CLUB"], detail: "150+ ACTIVE DAYS", metric: "activeDays", threshold: 150 },
+  { text: "1000+ COMMITS ★ COMMIT MACHINE", title: ["COMMIT", "MACHINE"], detail: "1000+ COMMITS", metric: "totalCommits", threshold: 1000 },
   { text: "1000+ ★ FOUR-FIGURE YEAR", title: ["FOUR-FIGURE", "YEAR"], detail: "1000+ THIS YEAR", metric: "totalContributions", threshold: 1000 },
+  { text: "200+ CODE REVIEWS ★ REVIEW LEGEND", title: ["REVIEW", "LEGEND"], detail: "200+ CODE REVIEWS", metric: "reviews", threshold: 200 },
   { text: "100+ CODE REVIEWS ★ REVIEW CHAMPION", title: ["REVIEW", "CHAMPION"], detail: "100+ CODE REVIEWS", metric: "reviews", threshold: 100 },
+  { text: "200+ PULL REQUESTS ★ PR LEGEND", title: ["PR", "LEGEND"], detail: "200+ PULL REQUESTS", metric: "pullRequests", threshold: 200 },
   { text: "100+ PULL REQUESTS ★ PR BUILDER", title: ["PR", "BUILDER"], detail: "100+ PULL REQUESTS", metric: "pullRequests", threshold: 100 },
   { text: "500+ COMMITS ★ COMMIT CRAFTER", title: ["COMMIT", "CRAFTER"], detail: "500+ COMMITS", metric: "totalCommits", threshold: 500 },
+  { text: "100+ ISSUES ★ BUG HUNTER", title: ["BUG", "HUNTER"], detail: "100+ ISSUES", metric: "issues", threshold: 100 },
+  { text: "50+ ISSUES ★ BUG SLEUTH", title: ["BUG", "SLEUTH"], detail: "50+ ISSUES", metric: "issues", threshold: 50 },
+  { text: "25+ ISSUES ★ TICKET TAMER", title: ["TICKET", "TAMER"], detail: "25+ ISSUES", metric: "issues", threshold: 25 },
   { text: "ACTIVE 100+ DAYS ★ HUNDRED-DAY CLUB", title: ["HUNDRED-DAY", "CLUB"], detail: "100+ ACTIVE DAYS", metric: "activeDays", threshold: 100 },
+  { text: "14+ DAY STREAK ★ FORTNIGHT STREAK", title: ["FORTNIGHT", "STREAK"], detail: "14+ DAY STREAK", metric: "longestStreak", threshold: 14 },
   { text: "7+ DAY STREAK ★ WEEK IN MOTION", title: ["WEEK IN", "MOTION"], detail: "7+ DAY STREAK", metric: "longestStreak", threshold: 7 },
 ] as const satisfies readonly { text: string; title: readonly string[]; detail: string; metric: AchievementMetric; threshold: number }[];
 

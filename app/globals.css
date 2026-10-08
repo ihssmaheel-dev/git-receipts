@@ -95,6 +95,9 @@ h2 { margin: 0 0 14px; color: #4b5c68; font-size: 24px; font-weight: 500; line-h
 .site-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 26px 0 32px; border-top: 1px solid var(--line); }
 .footer-brand { display: inline-flex; align-items: center; gap: 8px; color: #5f6d78; font-size: 13px; font-weight: 500; letter-spacing: -0.2px; text-decoration: none; }
 .site-footer p { margin: 0; color: #5f6d78; font-size: 12px; }
+.footer-love a { color: #536a7c; text-decoration: none; border-bottom: 1px solid #c5d0d7; }
+.footer-love a:hover { color: var(--accent); }
+.footer-love svg { color: #c0574f; vertical-align: -1px; }
 .site-footer > a:last-child { display: inline-flex; align-items: center; gap: 8px; color: #536a7c; font-size: 12px; text-decoration: none; }
 
 .loading-shell { padding-top: 48px; padding-bottom: 64px; }
