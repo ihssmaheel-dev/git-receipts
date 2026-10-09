@@ -39,7 +39,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .site-header nav { display: flex; align-items: center; gap: 30px; }
 .site-header nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; color: #526573; font-size: 13px; text-decoration: none; }
 .site-header nav a:hover, .text-link:hover, .try-link a:hover { color: var(--accent); }
-.github-nav { border-left: 1px solid var(--line); padding-left: 28px; }
+.site-header nav a.github-nav { min-height: 38px; padding: 7px 12px; border: 1px solid #cbd5dd; border-radius: 5px; background: #f5f7f9; color: #425b6c; white-space: nowrap; transition: background 150ms ease, border-color 150ms ease; }
+.site-header nav a.github-nav:hover { border-color: #aabcc9; background: #ffffff; }
 
 .workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); align-items: start; gap: 64px; padding-block: 48px 64px; }
 .configuration { position: sticky; top: 32px; min-width: 0; padding-top: 14px; }
@@ -153,12 +154,12 @@ h2 { margin: 0 0 14px; color: #4b5c68; font-size: 24px; font-weight: 500; line-h
 
 @media (max-width: 560px) {
   .site-header, main, .site-footer { width: calc(100% - 36px); }
-  .site-header { height: 75px; }
+  .site-header { height: 75px; gap: 12px; }
   .wordmark { font-size: 15px; gap: 8px; }
   .logo-icon { width: 30px; height: 30px; }
   .version-tag, .site-header nav > a:first-child { display: none; }
   .site-header nav { gap: 0; }
-  .github-nav { border: 0; padding: 0; }
+  .site-header nav a.github-nav { padding: 7px 9px; font-size: 12px; gap: 6px; }
   .site-header nav a { font-size: 12px; }
   .workspace { padding-top: 30px; gap: 32px; }
   .overline { margin-bottom: 17px; }

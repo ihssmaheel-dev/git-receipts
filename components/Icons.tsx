@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { ArrowRightIcon, ExternalLinkIcon, GitHubLogoIcon, HeartIcon as HeartIconBase, ReaderIcon } from "@radix-ui/react-icons";
+import { ArrowRightIcon, ExternalLinkIcon, GitHubLogoIcon, HeartIcon as HeartIconBase, ReaderIcon, StarIcon as StarIconBase } from "@radix-ui/react-icons";
 
 export function PrinterIcon({ size = 22, style }: { size?: number; style?: CSSProperties }) {
   return <ReaderIcon width={size} height={size} aria-hidden="true" style={style} />;
@@ -13,4 +13,7 @@ export function GithubIcon({ size = 20 }: { size?: number }) {
 }
 export function HeartIcon({ size = 12 }: { size?: number }) {
   return <HeartIconBase width={size} height={size} aria-hidden="true" />;
+}
+export function StarIcon({ size = 15 }: { size?: number }) {
+  return <StarIconBase width={size} height={size} aria-hidden="true" />;
 }

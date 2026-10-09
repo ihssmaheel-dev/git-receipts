@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { ArrowIcon, GithubIcon, HeartIcon, PrinterIcon } from "@/components/Icons";
+import { ArrowIcon, GithubIcon, HeartIcon, PrinterIcon, StarIcon } from "@/components/Icons";
 import { Printer } from "@/components/Printer/Printer";
 import { getReceiptData, normalizeYear, parseGitHubUsername, slowDownReceiptData } from "@/lib/github";
 import { getPrintCount } from "@/lib/prints";
@@ -71,7 +71,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
       <a className="skip-link" href="#profile">Skip to profile input</a>
       <header className="site-header">
         <Link className="wordmark" href="/" aria-label="Git Receipts home"><span className="logo-icon"><PrinterIcon size={21} /></span>Git Receipts<span className="version-tag">GR–02</span></Link>
-        <nav aria-label="Main navigation"><a href="#about">About the data <ArrowIcon size={13} /></a><a className="github-nav" href={githubUrl} target="_blank" rel="noreferrer"><GithubIcon size={17} />GitHub<ArrowIcon diagonal size={12} /></a></nav>
+        <nav aria-label="Main navigation"><a href="#about">About the data <ArrowIcon size={13} /></a><a className="github-nav" href={siteConfig.repositoryUrl} target="_blank" rel="noopener noreferrer" aria-label="Star Git Receipts on GitHub (opens in a new tab)"><GithubIcon size={17} />Star on GitHub<StarIcon size={14} /></a></nav>
       </header>
       <ReceiptPreferencesProvider key={`${data.snapshot.username}-${data.snapshot.year}`} initialShowStamp={initialShowStamp}>
       <main>

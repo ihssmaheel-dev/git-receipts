@@ -1,0 +1,2 @@
+# Historical invalid UUID fixture used to reject malformed print keys; not a credential.
+8359852063fc3609a06d4ee98dad430e8db00a49:tests/prints.test.ts:generic-api-key:20

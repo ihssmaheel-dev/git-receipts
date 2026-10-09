@@ -30,6 +30,7 @@ function safeSiteUrl(value: string | undefined): string {
 
 export const siteConfig = {
   appName: "Git Receipts",
+  repositoryUrl: "https://github.com/ihssmaheel-dev/git-receipts",
   name: cleanOptional(process.env.PORTFOLIO_NAME) || "Git Receipts",
   role: "Your GitHub year, on paper.",
   pitch: "Turn a year of building into a receipt worth keeping.",

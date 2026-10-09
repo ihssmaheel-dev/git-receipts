@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.vercel/
 out/
 .env*
 !.env.example
@@ -11,3 +12,9 @@ artifacts/
 *.db-wal
 *.db-shm
 data/app.db*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials*.json
