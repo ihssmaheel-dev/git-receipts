@@ -4,95 +4,154 @@ import { join } from "node:path";
 import { siteConfig } from "./config";
 import { createQrPath, receiptQrTarget } from "./qr";
 import { isReceiptSealText } from "./receiptSeal";
-import { layoutReceipt } from "./receiptLayout";
-import { renderReceiptSvg } from "./receiptSvg";
+import { layoutReceipt, receiptTextWidth, type ReceiptLayout, type ReceiptSealPlacement } from "./receiptLayout";
+import { formatReceiptNumber } from "./receiptLines";
 import type { ReceiptData, ReceiptLine } from "./types";
 
 export const receiptOgSize = { width: 1200, height: 630 };
+const paperColor = "#faf9f4";
+const paperInk = "#292925";
 
-function displayLines(lines: ReceiptLine[]): ReceiptLine[] {
+/** Keep the slip readable at sharing size; full receipts retain every row. */
+function displayLines(data: ReceiptData): ReceiptLine[] {
   const selected: ReceiptLine[] = [];
   let beforeFirstDivider = true;
-  let items = 0;
   let pairs = 0;
-  let includedFirstDivider = false;
   let includedTotal = false;
-
-  for (const line of lines) {
-    if (line.type === "text" && line.align === "center" && isReceiptSealText(line.text)) {
-      selected.push(line);
-      continue;
-    }
-    if (line.type === "heading") selected.push(line);
-    else if (line.type === "divider") {
+  for (const line of data.lines) {
+    if (line.type === "text" && line.align === "center" && isReceiptSealText(line.text)) selected.push(line);
+    else if (line.type === "heading") selected.push(line);
+    else if (line.type === "divider" && beforeFirstDivider) {
       beforeFirstDivider = false;
-      if (!includedFirstDivider) {
-        selected.push(line);
-        includedFirstDivider = true;
-      }
+      selected.push(line);
     } else if (line.type === "text" && beforeFirstDivider) selected.push(line);
-    else if (line.type === "text" && ["DATA UNAVAILABLE", "ACTIVITY SUMMARY"].includes(line.text)) selected.push(line);
     else if (line.type === "pair" && beforeFirstDivider && ["BILL NO.", "ACCOUNT", "YEAR"].includes(line.label)) selected.push(line);
-    else if (line.type === "item" && items++ < 4) selected.push(line);
+    else if (line.type === "text" && ["DATA UNAVAILABLE", "OUT OF PAPER"].includes(line.text)) selected.push(line);
+    else if (line.type === "pair" && !beforeFirstDivider && !includedTotal && pairs++ < 2) selected.push(line);
     else if (line.type === "total") {
       selected.push({ type: "divider" }, line);
       includedTotal = true;
     }
-    else if (line.type === "pair" && !beforeFirstDivider && !includedTotal && pairs++ < 2) selected.push(line);
   }
-  if (includedTotal) selected.push({ type: "divider" });
-  const footers = lines.filter((line) => line.type === "footer" && line.text !== "END OF RECEIPT");
-  if (footers.length) selected.push({ type: "spacer" }, ...footers);
+  if (includedTotal) selected.push({ type: "divider" }, { type: "text", text: "THANK YOU FOR SHOWING UP", align: "center" });
+  const disclosure = data.snapshot.source === "demo" ? "DEMO DATA - SAMPLE PROFILE"
+    : !data.snapshot.available ? "NO ACTIVITY TOTALS AVAILABLE"
+    : data.snapshot.source === "fallback" ? "SAVED SNAPSHOT"
+    : data.snapshot.source === "public" ? "PUBLIC CONTRIBUTION DATA"
+    : "GITHUB DATA - UPDATED HOURLY";
+  selected.push({ type: "footer", text: disclosure });
   return selected;
 }
 
-/** A static share card using the same vector receipt and overlay as downloads. */
-export function receiptOgImage(data: ReceiptData, options: { showStamp?: boolean } = {}): ImageResponse {
-  const target = receiptQrTarget(siteConfig.siteUrl, data.snapshot.source === "demo" ? "" : data.snapshot.username, data.snapshot.year);
-  const qr = createQrPath(target.url);
-  const previewData = { ...data, lines: displayLines(data.lines) };
-  const previewOptions = { data: previewData, qr, qrLabel: target.label, showStamp: options.showStamp, animated: false };
-  const layout = layoutReceipt(previewData.lines, previewOptions);
-  const previewWidth = Math.min(338, 546 * layout.width / layout.height);
-  const previewHeight = layout.height * previewWidth / layout.width;
-  const previewImage = `data:image/svg+xml;base64,${Buffer.from(renderReceiptSvg(previewOptions)).toString("base64")}`;
-  return new ImageResponse(
-    (
-      <div style={{ display: "flex", width: "100%", height: "100%", background: "#e8edf0", color: "#26333c", padding: "42px 75px", alignItems: "center", justifyContent: "space-between", fontFamily: "Geist" }}>
-        <div style={{ display: "flex", flexDirection: "column", width: 540, height: "100%", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", fontSize: 19, fontWeight: 600, letterSpacing: -0.7 }}>
-            <span style={{ display: "flex", width: 28, height: 26, marginRight: 12, alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, letterSpacing: -0.7, color: "#ffffff", background: "#45657c" }}>GR</span>
-            git receipts
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", fontSize: 12, fontWeight: 500, letterSpacing: 2.5, color: "#687985", marginBottom: 19 }}>A RECORD OF SHOWING UP</div>
-            <div style={{ display: "flex", fontSize: 65, lineHeight: 1.05, fontWeight: 700, letterSpacing: -3.7 }}>Your GitHub year,</div>
-            <div style={{ display: "flex", fontSize: 65, lineHeight: 1.05, fontWeight: 700, letterSpacing: -3.7, color: "#45657c" }}>on paper.</div>
-            <div style={{ display: "flex", fontSize: 20, lineHeight: 1.5, color: "#65727c", marginTop: 22, maxWidth: 450 }}>Contributions, quiet persistence, and a receipt worth keeping.</div>
-          </div>
-          <div style={{ display: "flex", width: "100%", fontSize: data.snapshot.username.length > 26 ? 13 : 17, wordBreak: "break-all", color: "#65727c" }}>
-            {data.snapshot.source === "demo" ? "Enter your handle. Print your year." : `@${data.snapshot.username} / ${data.snapshot.year}`}
-          </div>
-        </div>
-        <div style={{ display: "flex", width: previewWidth, height: previewHeight, boxShadow: "0 10px 25px #26333c18", transform: "rotate(2deg)" }}>
-          <img src={previewImage} width={previewWidth} height={previewHeight} alt={`GitHub receipt for ${data.snapshot.username}`} />
-        </div>
-      </div>
-    ),
-    { ...receiptOgSize, fonts: ogFonts() },
+function sealElement(element: ReceiptSealPlacement, scale: number) {
+  const { seal } = element;
+  const zoom = element.scale * scale;
+  const diameter = seal.diameter * zoom;
+  return (
+    <div key="seal" style={{ display: "flex", position: "absolute", left: element.x * scale, top: element.y * scale, width: diameter, height: diameter, color: seal.ink, opacity: seal.opacity, transform: `rotate(${seal.rotation}deg)`, fontFamily: "Geist Mono" }}>
+      <svg width={diameter} height={diameter} viewBox={`0 0 ${seal.diameter} ${seal.diameter}`} style={{ position: "absolute", left: 0, top: 0 }}>
+        {seal.rings.map((ring, index) => <circle key={index} cx={66} cy={66} r={ring.radius} fill="none" stroke={seal.ink} strokeWidth={ring.width} strokeDasharray={ring.dash} opacity={ring.opacity ?? 1} />)}
+        <path d={seal.logo.path} fill={seal.ink} fillRule="evenodd" transform={`translate(${seal.logo.x} ${seal.logo.y}) scale(${seal.logo.scale})`} />
+      </svg>
+      {seal.glyphs.filter((glyph) => glyph.text.trim()).map((glyph, index) => {
+        const width = receiptTextWidth(glyph.text, glyph.size) * zoom + 1;
+        return <div key={index} style={{ display: "flex", position: "absolute", left: glyph.x * zoom - width / 2, top: (glyph.y - glyph.size / 2) * zoom, width, height: glyph.size * zoom, justifyContent: "center", alignItems: "center", fontSize: glyph.size * zoom, fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap", transform: `rotate(${glyph.rotation}deg)` }}>{glyph.text}</div>;
+      })}
+    </div>
   );
+}
+
+/** All letters are Satori text, so bundled fonts become paths before PNG rendering. */
+function paperElement(layout: ReceiptLayout) {
+  const scale = Math.min(370 / layout.width, 522 / layout.height);
+  const width = layout.width * scale;
+  const height = layout.height * scale;
+  const teeth: string[] = [];
+  for (let x = layout.width; x >= 0; x -= 4) teeth.push(`${x},${layout.height - (teeth.length % 2 === 0 ? 4 : 0)}`);
+  return (
+    <div style={{ display: "flex", position: "relative", width, height, fontFamily: "Geist Mono", color: paperInk, boxShadow: "0 14px 34px #26333c1c" }}>
+      <svg width={width} height={height} viewBox={`0 0 ${layout.width} ${layout.height}`} style={{ position: "absolute", left: 0, top: 0 }}>
+        <polygon points={`0,0 ${layout.width},0 ${teeth.join(" ")} 0,0`} fill={paperColor} />
+      </svg>
+      {layout.elements.map((element, index) => {
+        if (element.type === "seal") return sealElement(element, scale);
+        if (element.type === "text") {
+          const textWidth = receiptTextWidth(element.value, element.size) * scale + 1;
+          const left = element.x * scale - (element.align === "center" ? textWidth / 2 : element.align === "right" ? textWidth : 0);
+          return <div key={index} style={{ display: "flex", position: "absolute", left, top: (element.y - element.size) * scale, width: textWidth, height: element.size * 1.25 * scale, justifyContent: element.align === "right" ? "flex-end" : element.align === "center" ? "center" : "flex-start", alignItems: "center", fontSize: element.size * scale, fontWeight: element.bold ? 700 : 400, lineHeight: 1, whiteSpace: "nowrap" }}>{element.value}</div>;
+        }
+        if (element.type === "rule") return <div key={index} style={{ display: "flex", position: "absolute", left: element.x * scale, top: element.y * scale, width: element.width * scale, borderTop: "1px dashed #999992" }} />;
+        if (element.type === "qr") return <svg key={index} width={element.width * scale} height={element.width * scale} viewBox={`-4 -4 ${element.qr.size + 8} ${element.qr.size + 8}`} style={{ position: "absolute", left: element.x * scale, top: element.y * scale }}>
+          <rect x={-4} y={-4} width={element.qr.size + 8} height={element.qr.size + 8} fill={paperColor} />
+          <path d={element.qr.path} fill={paperInk} />
+        </svg>;
+        return <svg key={index} width={element.width * scale} height={element.height * scale} viewBox={`0 0 ${element.barcode.width} ${element.height}`} preserveAspectRatio="none" style={{ position: "absolute", left: element.x * scale, top: element.y * scale }}>
+          <rect width={element.barcode.width} height={element.height} fill={paperColor} />
+          {element.barcode.bars.map((bar, barIndex) => <rect key={barIndex} x={bar.x} y={0} width={bar.width} height={element.height} fill={paperInk} />)}
+        </svg>;
+      })}
+    </div>
+  );
+}
+
+/** Shared by the profile endpoint and the default metadata image. */
+export function receiptOgElement(data: ReceiptData, options: { showStamp?: boolean } = {}) {
+  const { snapshot, stats } = data;
+  const target = receiptQrTarget(siteConfig.siteUrl, snapshot.source === "demo" ? "" : snapshot.username, snapshot.year);
+  const qr = snapshot.available ? createQrPath(target.url) : undefined;
+  const layout = layoutReceipt(displayLines(data), { qr, qrLabel: target.label, showStamp: options.showStamp });
+  const profile = snapshot.source === "demo" ? "Sample receipt" : `@${snapshot.username}`;
+  const total = formatReceiptNumber(stats.totalContributions);
+  return (
+    <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", background: "#e8edf0", color: "#26333c", padding: "44px 64px", alignItems: "center", justifyContent: "space-between", fontFamily: "Geist" }}>
+      <div style={{ display: "flex", position: "absolute", left: 704, top: 0, height: 630, width: 1, background: "#d9e1e5" }} />
+      <div style={{ display: "flex", flexDirection: "column", width: 616, height: "100%", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", fontSize: 23, fontWeight: 700, letterSpacing: -0.8 }}>
+          <span style={{ display: "flex", width: 32, height: 32, marginRight: 12, borderRadius: 6, alignItems: "center", justifyContent: "center", fontFamily: "Geist Mono", fontSize: 12, fontWeight: 700, letterSpacing: -0.6, color: "#ffffff", background: "#45657c" }}>GR</span>
+          git receipts
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
+          <div style={{ display: "flex", fontFamily: "Geist Mono", fontSize: 12, letterSpacing: 1.8, color: "#607785", marginBottom: 22 }}>GITHUB ACTIVITY RECEIPT</div>
+          <div style={{ display: "flex", fontSize: 64, lineHeight: 1.08, fontWeight: 700, letterSpacing: -2.6 }}>Your GitHub year,</div>
+          <div style={{ display: "flex", fontSize: 64, lineHeight: 1.08, fontWeight: 700, letterSpacing: -2.6, color: "#45657c" }}>on paper.</div>
+          <div style={{ display: "flex", alignItems: "center", marginTop: 25, fontFamily: "Geist Mono", fontSize: snapshot.username.length > 26 ? 18 : 22, color: "#526570", whiteSpace: "nowrap" }}>{profile}<span style={{ margin: "0 14px", color: "#a0aeb7" }}>/</span>{snapshot.year}</div>
+        </div>
+        {snapshot.available ? <div style={{ display: "flex", alignItems: "flex-end", paddingTop: 24, borderTop: "1px solid #cad5dc", width: 588 }}>
+          <div style={{ display: "flex", flexDirection: "column", width: 260 }}>
+            <div style={{ display: "flex", fontSize: total.length > 10 ? 38 : 52, fontWeight: 700, letterSpacing: -1.7, lineHeight: 1.05 }}>{total}</div>
+            <div style={{ display: "flex", fontFamily: "Geist Mono", fontSize: 11, letterSpacing: 1.2, color: "#657782", marginTop: 9 }}>CONTRIBUTIONS</div>
+          </div>
+          {stats.calendarComplete && <div style={{ display: "flex", flexDirection: "column", width: 155 }}>
+            <div style={{ display: "flex", fontSize: 36, fontWeight: 700, letterSpacing: -1, lineHeight: 1.05 }}>{formatReceiptNumber(stats.activeDays)}</div>
+            <div style={{ display: "flex", fontFamily: "Geist Mono", fontSize: 11, letterSpacing: 1.2, color: "#657782", marginTop: 9 }}>ACTIVE DAYS</div>
+          </div>}
+          {stats.calendarComplete && <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", fontSize: 36, fontWeight: 700, letterSpacing: -1, lineHeight: 1.05 }}>{formatReceiptNumber(stats.longestStreak)}<span style={{ display: "flex", fontSize: 17, fontWeight: 400, marginLeft: 5, alignSelf: "flex-end", marginBottom: 2 }}>days</span></div>
+            <div style={{ display: "flex", fontFamily: "Geist Mono", fontSize: 11, letterSpacing: 1.2, color: "#657782", marginTop: 9 }}>LONGEST STREAK</div>
+          </div>}
+        </div> : <div style={{ display: "flex", flexDirection: "column", paddingTop: 22, borderTop: "1px solid #cad5dc", width: 588 }}>
+          <div style={{ display: "flex", fontSize: 27, fontWeight: 700 }}>{snapshot.rateLimited ? "Out of paper." : "Receipt unavailable."}</div>
+          <div style={{ display: "flex", fontSize: 17, color: "#657782", marginTop: 8 }}>Try this profile again in a little while.</div>
+        </div>}
+      </div>
+      <div style={{ display: "flex", width: 370, height: "100%", alignItems: "center", justifyContent: "center" }}>{paperElement(layout)}</div>
+    </div>
+  );
+}
+
+export function receiptOgImage(data: ReceiptData, options: { showStamp?: boolean } = {}): ImageResponse {
+  return new ImageResponse(receiptOgElement(data, options), { ...receiptOgSize, fonts: ogFonts() });
 }
 
 let cachedFonts: NonNullable<ConstructorParameters<typeof ImageResponse>[1]>["fonts"];
 
 function ogFonts() {
   if (!cachedFonts) {
-    const fontRoot = join(process.cwd(), "node_modules", "geist", "dist", "fonts");
     cachedFonts = [
-      { name: "Geist", data: readFileSync(join(fontRoot, "geist-sans", "Geist-Regular.ttf")), weight: 400, style: "normal" },
-      { name: "Geist", data: readFileSync(join(fontRoot, "geist-sans", "Geist-Bold.ttf")), weight: 700, style: "normal" },
-      { name: "Geist Mono", data: readFileSync(join(fontRoot, "geist-mono", "GeistMono-Regular.ttf")), weight: 400, style: "normal" },
-      { name: "Geist Mono", data: readFileSync(join(fontRoot, "geist-mono", "GeistMono-Bold.ttf")), weight: 700, style: "normal" },
+      { name: "Geist", data: readFileSync(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf")), weight: 400, style: "normal" },
+      { name: "Geist", data: readFileSync(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf")), weight: 700, style: "normal" },
+      { name: "Geist Mono", data: readFileSync(join(process.cwd(), "node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf")), weight: 400, style: "normal" },
+      { name: "Geist Mono", data: readFileSync(join(process.cwd(), "node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.ttf")), weight: 700, style: "normal" },
     ];
   }
   return cachedFonts;
