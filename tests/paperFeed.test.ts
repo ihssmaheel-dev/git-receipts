@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePaperFeed, resolveLineEnds } from "../lib/paperFeed";
+import { calculatePaperFeed, resolveLineEnds, unscaleLineEnds } from "../lib/paperFeed";
 
 const paper = {
   visibleLines: 0,
@@ -9,6 +9,21 @@ const paper = {
   lineEnds: [90, 125, 170],
   height: 300,
 } as const;
+
+test("zoomed DOM rows feed to their actual paper positions without scaling twice", () => {
+  for (const scale of [0.5, 232 / 360, 1, 1.25]) {
+    const ends = unscaleLineEnds(paper.lineEnds.map((end) => end * scale), paper.height * scale, paper.height);
+    for (let index = 0; index < ends.length; index += 1) {
+      assert.ok(Math.abs(ends[index] - paper.lineEnds[index]) < 1e-8);
+      const fed = calculatePaperFeed({ ...paper, state: "printing", lineEnds: ends, visibleLines: index + 1 });
+      assert.ok(Math.abs(fed * scale - paper.lineEnds[index] * scale) < 1e-8, "Each printed row reaches the slot at its displayed position");
+    }
+    const tail = calculatePaperFeed({ ...paper, state: "printing", lineEnds: ends, visibleLines: 3, tailProgress: 1 });
+    assert.equal(tail, paper.height);
+  }
+  assert.deepEqual(unscaleLineEnds([90], 0, 300), []);
+  assert.deepEqual(unscaleLineEnds([90], 150, Number.NaN), []);
+});
 
 test("a new print keeps the header inside the slot until paper begins feeding", () => {
   assert.equal(calculatePaperFeed({ ...paper, state: "idle" }), 300);

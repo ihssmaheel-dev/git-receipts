@@ -14,6 +14,12 @@ function fraction(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
 }
 
+/** DOM rectangles include CSS zoom; feed distances use the paper's unzoomed height. */
+export function unscaleLineEnds(lineEnds: readonly number[], renderedHeight: number, height: number): number[] {
+  if (!Number.isFinite(renderedHeight) || renderedHeight <= 0 || !Number.isFinite(height) || height <= 0) return [];
+  return lineEnds.map((end) => end * height / renderedHeight);
+}
+
 /** Distance fed through the slot: the paper's leading edge leaves first. */
 export function calculatePaperFeed({
   state, visibleLines, lineProgress, tailProgress, lineEnds, height,

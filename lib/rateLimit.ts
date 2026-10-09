@@ -62,10 +62,32 @@ function sweepMemory(now: number): void {
   }
 }
 
+function rememberWindow(bucket: string, state: WindowState): void {
+  const current = memoryBuckets.get(bucket);
+  // Database replies can finish out of order. Never lower a known count or
+  // replace a newer window with a delayed reply from its predecessor.
+  if (!current || current.windowStart < state.windowStart) {
+    memoryBuckets.set(bucket, state);
+  } else if (current.windowStart === state.windowStart && current.count < state.count) {
+    memoryBuckets.set(bucket, state);
+  }
+}
+
+function consumeMemory(bucket: string, windowStart: number, windowMs: number, timestamp: number, limit: number): boolean {
+  // Read at reservation time, including after an asynchronous database failure.
+  const current = memoryBuckets.get(bucket);
+  if (current && current.windowStart > windowStart) return false;
+  const count = current?.windowStart === windowStart ? current.count : 0;
+  if (count >= limit) return false;
+  memoryBuckets.set(bucket, { count: count + 1, windowStart, windowMs });
+  sweepMemory(timestamp);
+  return true;
+}
+
 /**
  * Fixed-window gate. `memory` is instant and per-instance; `turso` consults the
  * shared bucket table so limits hold across serverless instances.
- * Degraded databases fail open: receipts never break because of abuse telemetry.
+ * Degraded databases use the per-instance mirror without breaking receipts.
  */
 export async function checkLimit(
   bucket: string,
@@ -82,10 +104,7 @@ export async function checkLimit(
   }
 
   if (store === "memory") {
-    const count = mirror && mirror.windowStart === windowStart ? mirror.count + 1 : 1;
-    memoryBuckets.set(bucket, { count, windowStart, windowMs });
-    sweepMemory(timestamp);
-    return { allowed: count <= limit, retryAfterMs };
+    return { allowed: consumeMemory(bucket, windowStart, windowMs, timestamp, limit), retryAfterMs };
   }
 
   try {
@@ -94,44 +113,44 @@ export async function checkLimit(
     await ensureDbSchema();
     const active = getDbClient();
     if (!active) throw new Error("Database is not configured.");
-    const existing = await active.execute({
-      sql: 'SELECT "count", window_start FROM rate_limits WHERE bucket = ?',
-      args: [bucket],
+    // SQLite serializes this reservation as one write. A read followed by a
+    // separate increment lets concurrent callers spend the same final slot.
+    const reservation = await active.execute({
+      sql: `INSERT INTO rate_limits(bucket, "count", window_start) VALUES (?, 1, ?)
+        ON CONFLICT(bucket) DO UPDATE SET
+          "count" = CASE WHEN rate_limits.window_start = excluded.window_start
+            THEN rate_limits."count" + 1 ELSE 1 END,
+          window_start = excluded.window_start
+        WHERE rate_limits.window_start < excluded.window_start
+          OR (rate_limits.window_start = excluded.window_start AND rate_limits."count" < ?)
+        RETURNING "count", window_start`,
+      args: [bucket, windowStart, limit],
     });
-    const row = existing.rows[0] as { count?: unknown; window_start?: unknown } | undefined;
-    const storedCount = Number(row?.count);
-    const storedWindow = Number(row?.window_start);
-    if (!row || storedWindow !== windowStart) {
-      // New windows self-clean: buckets idle over an hour are dead weight.
-      await active.batch([
-        {
-          sql: 'INSERT OR REPLACE INTO rate_limits(bucket, "count", window_start) VALUES (?, 1, ?)',
-          args: [bucket, windowStart],
-        },
-        { sql: "DELETE FROM rate_limits WHERE window_start < ?", args: [windowStart - 3_600_000] },
-      ]);
-      memoryBuckets.set(bucket, { count: 1, windowStart, windowMs });
-      return { allowed: 1 <= limit, retryAfterMs };
+    const row = reservation.rows[0];
+    const allowed = row !== undefined;
+    const count = allowed ? Number(row.count) : limit;
+    rememberWindow(bucket, { count, windowStart, windowMs });
+    sweepMemory(timestamp);
+
+    if (allowed && count === 1) {
+      // Cleanup is telemetry maintenance, not part of the reservation. Failure
+      // must not consume another memory slot or change an already-issued grant.
+      try {
+        await active.execute({
+          sql: "DELETE FROM rate_limits WHERE window_start < ?",
+          args: [windowStart - 3_600_000],
+        });
+      } catch {
+        // Retry cleanup when another bucket starts a new window.
+      }
     }
-    if (storedCount < limit) {
-      await active.execute({
-        sql: 'UPDATE rate_limits SET "count" = "count" + 1 WHERE bucket = ?',
-        args: [bucket],
-      });
-      memoryBuckets.set(bucket, { count: storedCount + 1, windowStart, windowMs });
-      return { allowed: true, retryAfterMs };
-    }
-    memoryBuckets.set(bucket, { count: limit, windowStart, windowMs });
-    return { allowed: false, retryAfterMs };
+    return { allowed, retryAfterMs };
   } catch {
     if (!dbWarned) {
       dbWarned = true;
       console.warn("[abuse] Rate-limit store unreachable; enforcing per-instance memory limits only.");
     }
-    const count = mirror && mirror.windowStart === windowStart ? mirror.count + 1 : 1;
-    memoryBuckets.set(bucket, { count, windowStart, windowMs });
-    sweepMemory(timestamp);
-    return { allowed: count <= limit, retryAfterMs };
+    return { allowed: consumeMemory(bucket, windowStart, windowMs, timestamp, limit), retryAfterMs };
   }
 }
 
@@ -152,6 +171,6 @@ export function rateLimitResponse(retryAfterMs: number, message = "Too many requ
   const retryAfter = Math.max(1, Math.ceil(retryAfterMs / 1000));
   return Response.json({ error: message, retryAfter }, {
     status: 429,
-    headers: { "Retry-After": String(retryAfter), "X-Content-Type-Options": "nosniff" },
+    headers: { "Retry-After": String(retryAfter), "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" },
   });
 }

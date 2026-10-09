@@ -20,16 +20,19 @@ function validYear(year: unknown): year is number {
 }
 
 /** Strict shape check shared by the route (400s) and recordPrint (silent no-ops). */
-export function isValidPrintInput(input: {
-  username?: unknown;
-  year?: unknown;
-  runKey?: unknown;
-}): boolean {
-  if (input.username !== undefined && input.username !== null && String(input.username).trim() !== "") {
-    if (typeof input.username !== "string" || !parseGitHubUsername(input.username)) return false;
+export function isValidPrintInput(input: unknown): input is {
+  username?: string;
+  year: number;
+  runKey: string;
+} {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return false;
+  const fields = input as { username?: unknown; year?: unknown; runKey?: unknown };
+  if (fields.username !== undefined) {
+    if (typeof fields.username !== "string") return false;
+    if (fields.username.trim() !== "" && !parseGitHubUsername(fields.username)) return false;
   }
-  if (!validYear(input.year)) return false;
-  return typeof input.runKey === "string" && RUN_KEY_PATTERN.test(input.runKey);
+  if (!validYear(fields.year)) return false;
+  return typeof fields.runKey === "string" && RUN_KEY_PATTERN.test(fields.runKey);
 }
 
 async function readCounter(active: Client): Promise<number | null> {
@@ -53,16 +56,8 @@ export async function recordPrint(input: {
   runKey: unknown;
   ipHash: string;
 }): Promise<PrintRecord> {
-  let username = "demo";
-  if (input.username !== undefined && input.username !== null && String(input.username).trim() !== "") {
-    if (typeof input.username !== "string") return { counted: false, total: null };
-    const parsed = parseGitHubUsername(input.username);
-    if (!parsed) return { counted: false, total: null };
-    username = parsed;
-  }
-  if (!validYear(input.year) || typeof input.runKey !== "string" || !RUN_KEY_PATTERN.test(input.runKey)) {
-    return { counted: false, total: null };
-  }
+  if (!isValidPrintInput(input)) return { counted: false, total: null };
+  const username = input.username?.trim() ? parseGitHubUsername(input.username)! : "demo";
 
   const db = getDbClient();
   if (!db) return { counted: false, total: null };
@@ -71,23 +66,25 @@ export async function recordPrint(input: {
     const active = getDbClient();
     if (!active) return { counted: false, total: null };
     const now = Date.now();
-    const inserted = await active.execute({
-      sql: "INSERT OR IGNORE INTO print_events(run_key, username, year, ip_hash, created_at) VALUES (?, ?, ?, ?, ?)",
-      args: [input.runKey, username, input.year, input.ipHash, now],
-    });
-    if (Number(inserted.rowsAffected) !== 1) {
-      const total = await readCounter(active);
-      cachedCount = { value: total, at: Date.now() };
-      return { counted: false, total };
-    }
-    await active.batch([
-      { sql: "UPDATE counters SET value = value + 1 WHERE name = 'prints'", args: [] },
+    const [inserted] = await active.batch([
+      {
+        sql: "INSERT OR IGNORE INTO print_events(run_key, username, year, ip_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+        args: [input.runKey, username, input.year, input.ipHash, now],
+      },
+      // changes() belongs to the preceding INSERT on this batch's connection.
+      // A replay adds nothing. A failed counter write rolls the event back too,
+      // so retrying the same key can still count the completed print.
+      {
+        sql: `INSERT INTO counters(name, value) SELECT 'prints', 1 WHERE changes() = 1
+          ON CONFLICT(name) DO UPDATE SET value = counters.value + excluded.value`,
+        args: [],
+      },
       { sql: "DELETE FROM print_events WHERE created_at < ?", args: [now - PRINT_RETENTION_MS] },
       { sql: "DELETE FROM rate_limits WHERE window_start < ?", args: [now - BUCKET_RETENTION_MS] },
-    ]);
+    ], "write");
     const total = await readCounter(active);
     cachedCount = { value: total, at: Date.now() };
-    return { counted: true, total };
+    return { counted: Number(inserted.rowsAffected) === 1, total };
   } catch {
     return { counted: false, total: null };
   }

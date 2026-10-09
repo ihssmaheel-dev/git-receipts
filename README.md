@@ -28,7 +28,7 @@ GH_PAT=
 - Uses a custom keyboard-accessible year picker, from 2008 through the current year. The current year ends today, in UTC, matching GitHub's calendar dates.
 - Uses a cool gray workbench, Geist typography, and a modeled off-white thermal printer with a graphite recessed deck, LED panel, working FEED control, roller, and cutter.
 - The contribution calendar has custom activity tooltips, arrow-key navigation, visible focus, and a selected-day summary.
-- Animates `idle → warming → handshake → printing → cutting → done`. The paper moves upward through the top slot in measured steps; the QR section feeds last, then the cutter releases the sheet. A fixed camera keeps the machine visible as longer paper leaves the frame. Sound is optional and off by default.
+- Animates `idle → warming → handshake → printing → cutting → done`. The paper moves upward through the top slot in measured steps; zoomed DOM measurements are converted to the paper's own coordinates before feeding. The QR section feeds last, then the cutter releases the sheet. A fixed camera keeps the machine visible as longer paper leaves the frame. Sound is optional and off by default.
 - Completed prints automatically open a centered, dismissible full-size receipt viewer, including when reduced motion skips the feed sequence. Close and PDF actions stay visible while the receipt body scrolls. The viewer manages focus and locks background scrolling without adding a gutter or shifting page width.
 - Includes white/charcoal paper, PNG and SVG downloads, share links, and a vector PDF on one 80mm-wide page with automatic height, selectable text, and a clickable QR target. PDFs use white paper for physical printing. **Print on paper** opens the browser's dialog for a connected printer; select an appropriate paper size there.
 - Copy a plain text receipt or its permalink from the printer controls. Clipboard failures show the receipt URL for manual copying. The README section supplies a linked light/dark `<picture>` snippet and prefilled X and Bluesky share links using the existing SVG endpoint.
@@ -44,7 +44,7 @@ GH_PAT=
 
 With `GH_PAT`, the server uses GitHub GraphQL. Otherwise it reads exact per-day counts from GitHub's public contribution calendar and optionally reads public profile details through REST. The public calendar does **not** supply contribution-type or repository breakdowns; those rows are omitted rather than estimated. This calendar HTML is an upstream implementation detail rather than a guaranteed API, so its parser may need updating if GitHub changes its markup.
 
-GitHub fetches are cached for one hour. A bounded process-local cache deduplicates concurrent lookups and keeps successful snapshots for the same profile/year. Failed lookups retry after one minute. During an upstream failure, a last-known snapshot is shown when that process has one; fresh serverless instances cannot recover another instance's memory. [data/fallback.json](data/fallback.json) supplies only the disclosed demo, never substitute numbers for a requested person or year. Unknown profiles show an unavailable receipt without fabricated totals.
+Successful GraphQL snapshots are validated before entering Next's hourly cache. Raw GraphQL responses use `no-store`, so an HTTP-200 quota error cannot poison the cache for an hour. Cache keys include the profile, period, hourly window, and a token fingerprint; tokens and private repository names are never persisted in these snapshots. Public calendar fetches retain their hourly HTTP cache. A bounded process-local cache deduplicates concurrent lookups and keeps successful snapshots for the same profile/year. Failed lookups retry after one minute. During an upstream failure, a last-known snapshot is shown when that process has one; fresh serverless instances cannot recover another instance's memory. [data/fallback.json](data/fallback.json) supplies only the disclosed demo, never substitute numbers for a requested person or year. Unknown profiles show an unavailable receipt without fabricated totals.
 
 Streaks are measured inside the selected calendar-year window. Private and internal repository names are replaced with `PRIVATE REPO #n`, and their URLs are discarded. Counts reflect what GitHub exposes to the configured server token; GitHub's contribution rules still apply.
 
@@ -60,11 +60,12 @@ GET /api/receipt.svg  30   429 JSON + Retry-After
 GET /api/og           30   429 JSON + Retry-After
 GET /api/receipt.pdf  10   429 JSON + Retry-After (CPU-heavy render)
 POST /api/prints      10   429 JSON + Retry-After
+GET /api/prints       10   public count; separate visitor bucket from POST
 ```
 
-Buckets live in Turso (shared across serverless instances) with a per-instance memory mirror for instant denies; unreachable databases fail open so receipts never break. Own-limit hits return standard 429s — only GitHub's quota shows OUT OF PAPER.
+Buckets live in Turso (shared across serverless instances) with a per-instance memory mirror for instant denies. Each shared reservation uses one conditional database write, so concurrent requests cannot spend the same slot. Unreachable databases fall back to per-instance memory limits. Own-limit hits return standard 429s with private, non-cacheable responses — only GitHub's quota shows OUT OF PAPER.
 
-Every finished FEED animation pings `POST /api/prints` once with a client-generated v4 `runKey`. Replays are free but add nothing (`INSERT OR IGNORE`); invalid shapes get 400; oversized bodies get 413. The public total under the printer counts completed prints of available receipts (sample included) and refreshes every minute. The store keeps salted IP hashes beside each counted print for 7 days and rate-limit buckets for 1 hour, then deletes them; nothing else personal is retained.
+Every finished FEED animation pings `POST /api/prints` once with a client-generated v4 `runKey`. The event and counter increment share one transaction: a failed write rolls both back so the same key can be retried. Replays add nothing while their keys are retained; invalid shapes get 400 and bodies over 1 KiB of UTF-8 get 413, including when Content-Length is absent. The public total under the printer counts completed prints of available receipts (sample included), updates from the successful POST response, and refreshes every minute while the page is visible. The store keeps salted IP hashes beside each counted print for 7 days and rate-limit buckets for 1 hour, then deletes them; nothing else personal is retained.
 
 ## Export endpoints
 
@@ -113,6 +114,7 @@ components/YearPicker/     Custom keyboard-accessible year selection
 components/ActivityCalendar/ Contribution tooltips and keyboard navigation
 hooks/usePrinter.ts        Timing, motion preference, and sound orchestration
 lib/github.ts              Cached GitHub lookups and failure handling
+lib/githubGraphql.ts       Validated GraphQL snapshot cache; errors remain retryable
 lib/githubInput.ts         Profile validation, public calendar parser, quota classifiers
 lib/githubCache.ts         Bounded shared snapshot cache
 lib/receiptData.ts         Pure snapshot builders (testable without server-only)

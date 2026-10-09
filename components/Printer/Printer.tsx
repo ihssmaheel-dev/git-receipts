@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { ArrowRightIcon, CheckIcon, Cross2Icon, DownloadIcon, FileTextIcon, Link2Icon, MoonIcon, ReaderIcon, SpeakerLoudIcon, SpeakerOffIcon, SunIcon, ZoomInIcon } from "@radix-ui/react-icons";
 import * as Dialog from "@radix-ui/react-dialog";
 import { PrinterHousingBack, PrinterHousingFront } from "./PrinterHousing";
 import { Receipt } from "@/components/Receipt/Receipt";
 import { useReceiptPreferences } from "@/components/Receipt/ReceiptPreferences";
 import { usePrinter } from "@/hooks/usePrinter";
-import { calculatePaperFeed, resolveLineEnds } from "@/lib/paperFeed";
+import { calculatePaperFeed, resolveLineEnds, unscaleLineEnds } from "@/lib/paperFeed";
 import { receiptLineText } from "@/lib/receiptLines";
 import { createReceiptSeal, isReceiptSealText } from "@/lib/receiptSeal";
 import type { ReceiptData } from "@/lib/types";
@@ -41,6 +41,7 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState<"link" | "text" | null>(null);
   const [egg, setEgg] = useState(false);
+  const [publicPrintCount, setPublicPrintCount] = useState(printCount);
   const serialClicks = useRef(0);
   const runKeyRef = useRef<string | null>(null);
   const postedPrints = useRef<Set<number>>(new Set());
@@ -52,6 +53,36 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
   const stampNote = available && data.stats.calendarComplete ? "No achievement earned for this period." : "Achievement data unavailable for this period.";
   const query = new URLSearchParams({ year: String(data.snapshot.year), theme, animate: "0", stamp: String(showStamp) });
   if (!sample) query.set("user", data.snapshot.username);
+
+  const updatePrintCount = useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== "object") return;
+    const total = (payload as { total?: unknown }).total;
+    if (typeof total !== "number" || !Number.isSafeInteger(total) || total < 0) return;
+    // Another instance may still have an older cached total; don't move backwards.
+    setPublicPrintCount((previous) => previous === null ? total : Math.max(previous, total));
+  }, []);
+
+  useEffect(() => { updatePrintCount({ total: printCount }); }, [printCount, updatePrintCount]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const refreshCount = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const response = await fetch("/api/prints", { cache: "no-store", signal: controller.signal });
+        if (response.ok && active) updatePrintCount(await response.json());
+      } catch { /* An unavailable counter never interrupts the printer. */ }
+    };
+    const timer = window.setInterval(refreshCount, 60_000);
+    document.addEventListener("visibilitychange", refreshCount);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshCount);
+    };
+  }, [updatePrintCount]);
 
   useEffect(() => {
     if (engine.state !== "done" || !showFinishedReceipt.current) return;
@@ -86,10 +117,12 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
+    }).then(async (response) => {
+      if (response.ok) updatePrintCount(await response.json());
     }).catch(() => {
       // Telemetry must never interrupt the receipt experience.
     });
-  }, [engine.state, engine.runId, available, sample, data.snapshot.username, data.snapshot.year]);
+  }, [engine.state, engine.runId, available, sample, data.snapshot.username, data.snapshot.year, updatePrintCount]);
 
   useEffect(() => {
     let active = true;
@@ -100,11 +133,11 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
       if (!active || !paper || !window || !assembly) return;
       const scale = window.clientWidth / PAPER_WIDTH;
       const height = paper.offsetHeight;
-      // Rect differences are translation-invariant (identical mid-print and at
-      // rest) and ignore offsetParent quirks, unlike an offsetTop chain.
-      const paperTop = paper.getBoundingClientRect().top;
-      const ends = Array.from(paper.querySelectorAll<HTMLElement>("[data-receipt-line]"))
-        .map((line) => line.getBoundingClientRect().bottom - paperTop);
+      // Rect deltas ignore paper translation, but include its current CSS zoom.
+      // Normalize using the rendered height, even when a resize is changing zoom.
+      const paperBox = paper.getBoundingClientRect();
+      const ends = unscaleLineEnds(Array.from(paper.querySelectorAll<HTMLElement>("[data-receipt-line]"))
+        .map((line) => line.getBoundingClientRect().bottom - paperBox.top), paperBox.height, height);
       const machineScale = assembly.clientWidth / MACHINE_WIDTH;
       setGeometry((previous) => {
         if (Math.abs(previous.height - height) < 0.5 && Math.abs(previous.scale - scale) < 0.001 &&
@@ -231,7 +264,7 @@ export function Printer({ data, qrPath, qrSize, qrLabel, qrUrl, printCount }: Pr
       </div>
     </div>
     <div className={styles.bench} data-state={engine.state}>
-      <div className={styles.benchHeading}><span>PRINT STATION / 01</span>{printCount !== null && <span className={styles.printCount}>Totally {printCount.toLocaleString("en-US")} {printCount === 1 ? "receipt" : "receipts"} printed</span>}<span>{!available ? "NO DATA" : sample ? "SAMPLE" : "@" + data.snapshot.username} · {data.snapshot.year}</span></div>
+      <div className={styles.benchHeading}><span>PRINT STATION / 01</span>{publicPrintCount !== null && <span className={styles.printCount}>Totally {publicPrintCount.toLocaleString("en-US")} {publicPrintCount === 1 ? "receipt" : "receipts"} printed</span>}<span>{!available ? "NO DATA" : sample ? "SAMPLE" : "@" + data.snapshot.username} · {data.snapshot.year}</span></div>
       <div className={styles.assembly} ref={assemblyRef} style={stageStyle} data-state={engine.state} data-reduced={engine.reducedMotion}>
         <PrinterHousingBack idPrefix={uid} />
         <div ref={windowRef} className={styles.paperWindow} aria-label="Paper exiting the top slot">

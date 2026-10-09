@@ -9,7 +9,7 @@ import test from "node:test";
  * `server-only` tripwire; everything else is guarded here so unit tests can
  * import the modules directly.
  */
-const GUARDED = ["lib/db", "lib/prints", "lib/rateLimit", "lib/github.ts"];
+const GUARDED = ["lib/db", "lib/prints", "lib/rateLimit", "lib/github", "lib/githubGraphql"];
 
 function sourceFiles(directory: string): string[] {
   const found: string[] = [];
@@ -27,19 +27,16 @@ function sourceFiles(directory: string): string[] {
 function guardedImport(file: string, specifier: string): string | null {
   let normalized: string;
   if (specifier.startsWith("@/")) {
-    normalized = specifier.slice(2).split("/").join(sep);
+    normalized = specifier.slice(2);
   } else if (specifier.startsWith(".")) {
     const root = resolve(import.meta.dirname, "..");
     normalized = relative(root, resolve(join(file, ".."), specifier)).split(sep).join("/");
     if (normalized.startsWith("..")) return null;
-    normalized = normalized.split("/").join(sep);
   } else {
     return null;
   }
-  const withExtension = normalized.endsWith(".ts") || normalized.endsWith(".tsx")
-    ? normalized.slice(0, -4)
-    : normalized;
-  return GUARDED.find((guarded) => withExtension === guarded || withExtension.startsWith(`${guarded}${sep}`)) ?? null;
+  const withExtension = normalized.replace(/\.(ts|tsx)$/, "");
+  return GUARDED.find((guarded) => withExtension === guarded || withExtension.startsWith(`${guarded}/`)) ?? null;
 }
 
 test("client components never import server-only data modules", () => {
@@ -60,6 +57,15 @@ test("client components never import server-only data modules", () => {
     }
   }
   assert.deepEqual(violations, []);
+});
+
+test("server-only import guard recognizes aliases, relative paths, and explicit TS extensions", () => {
+  const file = resolve(import.meta.dirname, "..", "components", "Receipt", "Receipt.tsx");
+  for (const specifier of ["@/lib/github", "@/lib/github.ts", "../../lib/github", "../../lib/github.ts"])
+    assert.equal(guardedImport(file, specifier), "lib/github");
+  for (const specifier of ["@/lib/githubGraphql", "../../lib/githubGraphql.ts", "../../lib/githubGraphql.tsx"])
+    assert.equal(guardedImport(file, specifier), "lib/githubGraphql");
+  assert.equal(guardedImport(file, "../../lib/githubInput"), null);
 });
 
 test("the GitHub fetcher keeps its server-only tripwire", () => {
