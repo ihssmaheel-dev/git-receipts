@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { siteConfig } from "./config";
 import { createQrPath, receiptQrTarget } from "./qr";
 import { isReceiptSealText } from "./receiptSeal";
+import { ogSealFont, ogSealGlyphPaths } from "./ogSealGlyphs";
 import { layoutReceipt, receiptTextWidth, type ReceiptLayout, type ReceiptSealPlacement } from "./receiptLayout";
 import { formatReceiptNumber } from "./receiptLines";
 import type { ReceiptData, ReceiptLine } from "./types";
@@ -47,21 +48,31 @@ function sealElement(element: ReceiptSealPlacement, scale: number) {
   const { seal } = element;
   const zoom = element.scale * scale;
   const diameter = seal.diameter * zoom;
+  const center = seal.diameter / 2;
   return (
-    <div key="seal" style={{ display: "flex", position: "absolute", left: element.x * scale, top: element.y * scale, width: diameter, height: diameter, color: seal.ink, opacity: seal.opacity, transform: `rotate(${seal.rotation}deg)`, fontFamily: "Geist Mono" }}>
-      <svg width={diameter} height={diameter} viewBox={`0 0 ${seal.diameter} ${seal.diameter}`} style={{ position: "absolute", left: 0, top: 0 }}>
-        {seal.rings.map((ring, index) => <circle key={index} cx={66} cy={66} r={ring.radius} fill="none" stroke={seal.ink} strokeWidth={ring.width} strokeDasharray={ring.dash} opacity={ring.opacity ?? 1} />)}
-        <path d={seal.logo.path} fill={seal.ink} fillRule="evenodd" transform={`translate(${seal.logo.x} ${seal.logo.y}) scale(${seal.logo.scale})`} />
-      </svg>
-      {seal.glyphs.filter((glyph) => glyph.text.trim()).map((glyph, index) => {
-        const width = receiptTextWidth(glyph.text, glyph.size) * zoom + 1;
-        return <div key={index} style={{ display: "flex", position: "absolute", left: glyph.x * zoom - width / 2, top: (glyph.y - glyph.size / 2) * zoom, width, height: glyph.size * zoom, justifyContent: "center", alignItems: "center", fontSize: glyph.size * zoom, fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap", transform: `rotate(${glyph.rotation}deg)` }}>{glyph.text}</div>;
-      })}
-    </div>
+    <svg key="seal" role="img" aria-label={seal.text} width={diameter} height={diameter} viewBox={`0 0 ${seal.diameter} ${seal.diameter}`} style={{ position: "absolute", left: element.x * scale, top: element.y * scale }}>
+      <g fill={seal.ink} opacity={seal.opacity} transform={`rotate(${seal.rotation} ${center} ${center})`}>
+        {seal.rings.map((ring, index) => <circle key={index} cx={center} cy={center} r={ring.radius} fill="none" stroke={seal.ink} strokeWidth={ring.width} strokeDasharray={ring.dash} opacity={ring.opacity ?? 1} />)}
+        {/* Native vector transforms retain subpixel arc spacing at the small sharing size. */}
+        {seal.glyphs.filter((glyph) => glyph.text.trim()).map((glyph, index) => {
+          const characters = Array.from(glyph.text);
+          const size = glyph.size + (characters.length === 1 ? 2 : 0);
+          const emScale = size / ogSealFont.unitsPerEm;
+          return <g key={index} transform={`translate(${glyph.x} ${glyph.y}) rotate(${glyph.rotation}) scale(${emScale} ${-emScale}) translate(${-characters.length * ogSealFont.advance / 2} ${-ogSealFont.capHeight / 2})`}>
+            {characters.map((character, characterIndex) => {
+              const path = ogSealGlyphPaths[character];
+              if (path === undefined) throw new Error(`Unsupported OG seal character: ${character}`);
+              return path ? <path key={characterIndex} d={path} transform={`translate(${characterIndex * ogSealFont.advance} 0)`} /> : null;
+            })}
+          </g>;
+        })}
+        <path d={seal.logo.path} fillRule="evenodd" transform={`translate(${seal.logo.x} ${seal.logo.y}) scale(${seal.logo.scale})`} />
+      </g>
+    </svg>
   );
 }
 
-/** All letters are Satori text, so bundled fonts become paths before PNG rendering. */
+/** Receipt text uses bundled fonts; the small seal uses precomputed vector letterforms. */
 function paperElement(layout: ReceiptLayout) {
   const scale = Math.min(370 / layout.width, 522 / layout.height);
   const width = layout.width * scale;

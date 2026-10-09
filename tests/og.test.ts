@@ -6,8 +6,10 @@ import sharp from "sharp";
 import fallback from "../data/fallback.json";
 import { siteConfig } from "../lib/config";
 import { receiptOgElement, receiptOgImage, receiptOgSize } from "../lib/og";
+import { ogSealGlyphPaths } from "../lib/ogSealGlyphs";
 import { receiptQrTarget } from "../lib/qr";
 import { receiptFromSnapshot, unavailableSnapshot, outOfPaperSnapshot } from "../lib/receiptData";
+import { createReceiptSeal } from "../lib/receiptSeal";
 import type { ContributionSnapshot, ReceiptData } from "../lib/types";
 
 function publicReceipt(username = "octocat"): ReceiptData {
@@ -81,6 +83,34 @@ test("OG receipts keep printable text in the font-aware renderer instead of a te
       assert.ok(!/<text(?:\s|>)/.test(svg), "Embedded SVGs contain paths, never text needing an unavailable system font");
     }
   }
+  assert.ok(!elements.some((element) => element.type === "text" || element.type === "textPath"),
+    "Nested SVGs also use outlines rather than font-dependent text");
+});
+
+test("the OG achievement stamp preserves every letter as finite native vector geometry", () => {
+  const data = publicReceipt();
+  const seal = createReceiptSeal(data.lines)!;
+  const { elements } = inspectTree(receiptOgElement(data));
+  const stamp = elements.find((element) => element.type === "svg" && element.props.role === "img");
+  assert.ok(stamp, "An earned stamp is a vector image");
+  assert.equal(stamp.props["aria-label"], seal.text, "The complete achievement remains identifiable");
+  const stampTree = inspectTree(stamp.props.children as ReactNode);
+  assert.equal(stampTree.texts.length, 0, "Arc letters avoid CSS text layout rounding at social image size");
+  const paths = stampTree.elements.filter((element) => element.type === "path");
+  const printedCharacters = seal.glyphs.flatMap((glyph) => Array.from(glyph.text)).filter((character) => character.trim());
+  assert.equal(paths.length, printedCharacters.length + 1, "Each top arc, title, and bottom arc letter is preserved alongside the GitHub logo");
+  for (const path of paths) {
+    assert.match(String(path.props.d), /^M/);
+    assert.ok(!/NaN|Infinity|undefined/.test(String(path.props.d)));
+  }
+  for (const element of stampTree.elements) {
+    assert.ok(!/NaN|Infinity|undefined/.test(String(element.props.transform || "")), "All rotated letter positions remain finite");
+  }
+  for (const character of "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-") {
+    assert.ok(ogSealGlyphPaths[character], `The local font outlines support achievement character ${character}`);
+  }
+  const unstamped = inspectTree(receiptOgElement(data, { showStamp: false }));
+  assert.ok(!unstamped.elements.some((element) => element.type === "svg" && element.props.role === "img"), "The stamp toggle removes the vector impression completely");
 });
 
 test("public, demo, missing-profile, and quota OG receipts retain honest data states", () => {
