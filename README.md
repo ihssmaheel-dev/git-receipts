@@ -4,6 +4,8 @@
 
 Turn any public GitHub profile into a thermal-style activity receipt. Enter a username or profile link, choose a year, and watch the printer feed your receipt.
 
+<img width="1453" height="971" alt="image" src="https://github.com/user-attachments/assets/4c4625b5-1fd9-4d87-aa1d-fce62a745dfb" />
+
 [Try Git Receipts](https://git-receipts.vercel.app) · [Star on GitHub](https://github.com/ihssmaheel-dev/git-receipts)
 
 ## Features
